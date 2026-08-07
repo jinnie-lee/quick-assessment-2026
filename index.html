@@ -23,15 +23,15 @@ body{font-family:'72','Noto Sans KR',-apple-system,sans-serif;background:var(--b
 .header-title{font-size:16px;font-weight:700;color:var(--navy);}
 .header-subtitle{font-size:12px;color:var(--text-light);}
 .header-time{font-size:11px;color:var(--text-light);background:var(--light-blue);padding:4px 12px;border-radius:12px;}
-.progress-container{background:var(--white);padding:12px 32px;border-bottom:1px solid var(--border);}
-.progress-bar{max-width:700px;margin:0 auto;display:flex;align-items:center;gap:0;}
-.p-step{display:flex;align-items:center;flex:1;}
+.progress-container{background:var(--white);padding:12px 32px;border-bottom:1px solid var(--border);overflow:hidden;}
+.progress-bar{max-width:700px;margin:0 auto;display:flex;align-items:center;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.p-step{display:flex;align-items:center;flex:1;min-width:0;}
 .p-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--gray);color:var(--text-light);flex-shrink:0;transition:all .3s;}
 .p-step.active .p-circle{background:var(--blue);color:white;}
 .p-step.done .p-circle{background:var(--green);color:white;}
-.p-label{font-size:10px;margin-left:6px;color:var(--text-light);white-space:nowrap;}
+.p-label{font-size:10px;margin-left:6px;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .p-step.active .p-label{color:var(--blue);font-weight:500;}
-.p-line{flex:1;height:2px;background:var(--border);margin:0 6px;}
+.p-line{flex:1;height:2px;background:var(--border);margin:0 6px;min-width:8px;}
 .p-step.done .p-line{background:var(--green);}
 .progress-info{text-align:center;margin-top:8px;font-size:11px;color:var(--text-light);}
 .main{max-width:900px;margin:20px auto;padding:0 20px;}
@@ -130,10 +130,11 @@ body{font-family:'72','Noto Sans KR',-apple-system,sans-serif;background:var(--b
   .header-title{font-size:14px;}
   .header-subtitle{font-size:10px;}
   .header-time{font-size:10px;padding:3px 8px;}
-  .progress-container{padding:10px 16px;}
+  .progress-container{padding:10px 12px;overflow:hidden;}
   .p-label{display:none;}
   .p-circle{width:24px;height:24px;font-size:10px;}
-  .p-line{margin:0 4px;}
+  .p-line{margin:0 4px;min-width:6px;}
+  .progress-bar{gap:0;justify-content:center;}
   .progress-info{font-size:10px;}
   .main{padding:0 12px;margin:12px auto;}
   
@@ -219,10 +220,17 @@ body{font-family:'72','Noto Sans KR',-apple-system,sans-serif;background:var(--b
   .dart-dropdown-item{padding:12px 14px;}
 }
 
+@media(max-width:540px){
+  .p-label{display:none!important;}
+  .progress-container{padding:10px 12px;}
+  .p-circle{width:24px;height:24px;font-size:10px;}
+  .p-line{margin:0 3px;min-width:6px;}
+}
 @media(max-width:380px){
   .header-time{display:none;}
   .scale-opt{flex:0 0 100%;}
   .p-circle{width:20px;height:20px;font-size:9px;}
+  .p-line{margin:0 2px;min-width:4px;}
 }
 @media print{.header,.progress-container,.btn-row,.export-bar{display:none;}.section{display:block!important;page-break-inside:avoid;}.main{max-width:100%;}.result-card{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}}
 /* Export Bar */
@@ -3237,9 +3245,10 @@ function renderResults(data) {
     <div class="disclaimer">${data.benchInfo.validated ? 'SAP VLM 벤치마크 기반 산출' : '추정 모델 기반 (검증된 산업 벤치마크 없음)'}</div>
   </div>`;
 
-  // Cost of Inaction (3-year)
+  // Cost of Inaction (3-year) - GATED
   const coiData = getCostOfInaction(data.totalScenarios, data.avgMaturity, data.industry);
-  html += `<div class="result-card full">
+  html += `<div class="result-card full" style="position:relative;overflow:hidden;">`;
+  html += `<div class="gated-blur">
     <div class="result-title" style="border-bottom-color:#CC1919;">비행동 비용 (Cost of Inaction)</div>
     <div class="card-desc" style="margin-bottom:14px;">현 상태를 유지할 경우 3년간 누적되는 기회손실 추정</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
@@ -3277,9 +3286,16 @@ function renderResults(data) {
     </div>
     <div class="disclaimer">가정: 업계 디지털 전환 가속률 ${coiData.gapAcceleration}%/년 적용. 실제 손실은 경쟁 환경에 따라 상이할 수 있음</div>
   </div>`;
+  html += `<div class="gated-overlay" style="border-radius:var(--radius);">
+    <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+    <div class="gated-title">비행동 비용 상세 분석</div>
+    <div class="gated-desc">3년간 누적 기회손실과 경쟁 격차 시뮬레이션을 SAP 담당자와 확인하세요.</div>
+    <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">상세 분석 요청하기</button>
+  </div></div>`;
 
-  // ── 우선순위 기회 맵 + SAP 솔루션 매핑 (솔루션은 Gated) ──
-  html += `<div class="result-card full">
+  // ── 우선순위 기회 맵 + 기회 상세 - GATED ──
+  html += `<div class="result-card full" style="position:relative;overflow:hidden;">`;
+  html += `<div class="gated-blur">
     <div class="result-title">우선순위 기회 맵 &amp; SAP 솔루션 매핑</div>
     <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;">
       <div>
@@ -3288,31 +3304,21 @@ function renderResults(data) {
           <canvas id="quadrantChart" style="max-height:340px;"></canvas>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;font-size:10px;">
-          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#188918;display:inline-block;"></span>⚡ Quick Win (높은 영향 + 쉬운 실행)</div>
-          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#0070F2;display:inline-block;"></span>🎯 전략적 이니셔티브 (높은 영향 + 어려운 실행)</div>
-          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#E76500;display:inline-block;"></span>🔄 점진적 개선 (낮은 영향 + 쉬운 실행)</div>
-          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#aaa;display:inline-block;"></span>👁 모니터링 (낮은 영향 + 어려운 실행)</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#188918;display:inline-block;"></span> Quick Win</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#0070F2;display:inline-block;"></span> 전략적 이니셔티브</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#E76500;display:inline-block;"></span> 점진적 개선</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#aaa;display:inline-block;"></span> 모니터링</div>
         </div>
       </div>
-      <div style="position:relative;overflow:hidden;border-radius:var(--radius);">
-        <div class="gated-blur">
-          <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px;">SAP 솔루션 적용 가능성</div>
-          ${renderSolutionMatrix(data.opportunities)}
-        </div>
-        <div class="gated-overlay" style="border-radius:var(--radius);">
-          <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
-          <div class="gated-title">더 자세한 분석이 필요하신가요?</div>
-          <div class="gated-desc">선택한 과제별 SAP 솔루션 매핑과 적용 가능성을 SAP 담당자와 함께 검토하세요.</div>
-          <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">상세 분석 요청하기</button>
-        </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px;">SAP 솔루션 적용 가능성</div>
+        ${renderSolutionMatrix(data.opportunities)}
       </div>
-    </div>
-  </div>`;
+    </div>`;
 
-  // Opportunity detail cards - GATED
+  // Opportunity detail cards (included in same gated block)
   if (data.opportunities.length > 0) {
-    html += `<div class="result-card full" style="position:relative;overflow:hidden;"><div class="gated-blur">
-      <div class="result-title">기회별 상세 분석</div>`;
+    html += `<div style="margin-top:16px;"><div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px;">기회별 상세 분석</div>`;
     data.opportunities.forEach((opp, idx) => {
       const typeLabels = {quickwin:'Quick Win',strategic:'전략적 이니셔티브',incremental:'점진적 개선',monitor:'모니터링 / 검증'};
       html += `<div class="opp-card opp-${opp.oppType}" onclick="this.querySelector('.trace-detail').classList.toggle('open')">
@@ -3320,32 +3326,32 @@ function renderResults(data) {
         <div class="opp-title">${opp.text}</div>
         <div class="opp-meta">
           영역: ${opp.domain} · 영향도: ${opp.rating.impact}/5 · 긴급도: ${opp.rating.urgency}/5 ·
-          가치: <span class="opp-value" data-c="${opp.scenarios.conservative}" data-e="${opp.scenarios.expected}" data-a="${opp.scenarios.ambitious}">${fmtMoney(opp.scenarios.expected)}</span> ·
-          <span style="font-size:10px;color:var(--blue);">${opp.sapSolution || ''}</span>
+          실행용이도: ${opp.feasibility.toFixed(1)}/5 · 신뢰도: ${opp.confidence}
         </div>
         <div class="trace-detail">
-          <div class="trace-row"><span class="trace-label">VLM 가치동인:</span>${opp.vd}</div>
-          <div class="trace-row"><span class="trace-label">연결 KPI:</span>${opp.kpi} (현재: ${typeof opp.currentVal==='number'?opp.currentVal.toFixed(1):'N/A'} → 목표: ${typeof opp.targetVal==='number'?opp.targetVal.toFixed(1):'N/A'})</div>
-          <div class="trace-row"><span class="trace-label">격차:</span>${(opp.gapPct*100).toFixed(1)}%</div>
+          <div class="trace-row"><span class="trace-label">Value Driver:</span>${opp.vd}</div>
+          <div class="trace-row"><span class="trace-label">현재값:</span>${opp.currentVal?.toFixed?.(1) || '-'} → 목표: ${opp.targetVal?.toFixed?.(1) || '-'} (격차 ${(opp.gapPct*100).toFixed(1)}%)</div>
+          <div class="trace-row"><span class="trace-label">예상 가치:</span>${fmtMoney(opp.scenarios.conservative)}–${fmtMoney(opp.scenarios.ambitious)}/년</div>
           <div class="trace-row"><span class="trace-label">추천 솔루션:</span>${opp.sapSolution || '-'}</div>
           <div class="trace-row"><span class="trace-label">산출식:</span>매출 × 격차% × 영향계수 × 달성률 × 중복보정</div>
           <div style="margin-top:6px;font-style:italic;color:var(--text-light);">클릭하여 접기</div>
         </div>
       </div>`;
     });
-    html += `</div>
-    <div class="gated-overlay" style="border-radius:var(--radius);">
-      <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
-      <div class="gated-title">더 자세한 분석이 필요하신가요?</div>
-      <div class="gated-desc">기회별 가치 추정, SAP 솔루션 연결, KPI 격차 분석을 SAP 담당자와 함께 검토하세요.</div>
-      <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">상세 분석 요청하기</button>
-    </div></div>`;
+    html += `</div>`;
   }
+  html += `</div>`;
+  html += `<div class="gated-overlay" style="border-radius:var(--radius);">
+    <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+    <div class="gated-title">우선순위 맵 & 기회 분석 상세</div>
+    <div class="gated-desc">과제별 가치 추정, SAP 솔루션 매핑, KPI 격차 분석을 SAP 담당자와 함께 검토하세요.</div>
+    <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">상세 분석 요청하기</button>
+  </div></div>`;
 
-  // AI Agent Recommendation Section
+  // AI Agent Recommendation Section - GATED
   const aiAgentRecs = getAIAgentRecommendations(data.domainScores, data.opportunities);
   if (aiAgentRecs.length > 0) {
-    html += `<div class="result-card full"><div class="result-title" style="border-bottom-color:#4CB1FF;">적용 가능 SAP AI Agent (Joule)</div>
+    html += `<div class="result-card full" style="position:relative;overflow:hidden;"><div class="gated-blur"><div class="result-title" style="border-bottom-color:#4CB1FF;">적용 가능 SAP AI Agent (Joule)</div>
       <div class="card-desc" style="margin-bottom:14px;">귀사의 진단 결과 기반, 아래 AI Agent 적용을 검토해 볼 수 있습니다.</div>
       <div class="ai-agent-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">`;
     aiAgentRecs.forEach(agent => {
@@ -3376,7 +3382,13 @@ function renderResults(data) {
         </div>
       </div>
       <div class="disclaimer">출처: SAP Jarvis AI Feature Map · SAP MXP Roadmap Explorer (Knowledge Graph 기반 매핑)</div>
-    </div>`;
+    </div>
+    <div class="gated-overlay" style="border-radius:var(--radius);">
+      <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+      <div class="gated-title">AI Agent 상세 적용 방안</div>
+      <div class="gated-desc">귀사에 적합한 SAP AI Agent 도입 시나리오를 SAP 담당자와 함께 설계하세요.</div>
+      <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">AI Agent 상담 요청하기</button>
+    </div></div>`;
   }
 
   // Execution Roadmap (3-Phase) - GATED
@@ -3724,6 +3736,11 @@ function renderResults(data) {
     renderQuadrantChart(data.opportunities);
     window._quadrantInstance = quadrantInstance;
   }, 100);
+
+  // Auto-save to Google Sheets (non-blocking)
+  setTimeout(() => {
+    try { autoSaveToSheets(); } catch(e) { console.warn('Auto-save to Sheets failed:', e); }
+  }, 500);
 }
 
 // ============================================================
@@ -3988,6 +4005,48 @@ body{font-family:'72','Noto Sans KR',sans-serif;background:white;color:#1D2D3E;w
     showToast('새 탭에서 요약을 확인하세요. Ctrl+P로 PDF 저장 가능합니다.', 'info', 5000);
   } finally {
     document.body.removeChild(iframe);
+  }
+}
+
+// ============================================================
+// AUTO-SAVE: 결과 생성 시 자동으로 Google Sheets에 전송
+// ============================================================
+async function autoSaveToSheets() {
+  if (!GOOGLE_SHEETS_URL) {
+    console.warn('Google Sheets URL not configured. Skipping auto-save.');
+    return;
+  }
+  
+  const allData = collectAllData();
+  if (!allData) return;
+  
+  // Flatten all data into a single row
+  const flatRow = {
+    timestamp: new Date().toISOString(),
+    ...allData.basicInfo,
+    ...allData.financialData,
+    ...allData.kpiData,
+    ...allData.maturityData,
+    ...allData.resultsData,
+    erp_system: document.getElementById('inp_erp')?.value || '',
+    cloud_level: document.getElementById('inp_cloud')?.value || '',
+    pain_points: allData.painPointData.selected_pain_points,
+    pain_point_count: allData.painPointData.pain_point_count,
+    opportunities: allData.oppData.map(o => `${o.rank}.${o.text}(${o.type})`).join(' | '),
+    consent_agreed: 'Y',
+    source: 'auto_save'
+  };
+  
+  try {
+    await fetch(GOOGLE_SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(flatRow)
+    });
+    console.log('Auto-save to Google Sheets completed.');
+  } catch (e) {
+    console.warn('Auto-save to Sheets failed:', e.message);
   }
 }
 
