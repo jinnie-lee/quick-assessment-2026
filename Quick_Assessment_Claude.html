@@ -1,0 +1,3319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제조 AI 전환 - Quick Assessment</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+:root{
+--blue:#0070F2;--navy:#00144A;--light-blue:#E1F4FF;--sky:#4CB1FF;
+--gray:#EAECEE;--border:#E1E2E6;--bg:#F8F9FA;--white:#FFFFFF;
+--text:#1D2D3E;--text-light:#556B82;--green:#188918;--orange:#E76500;--red:#CC1919;
+--radius:8px;--shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'72','Noto Sans KR',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;}
+.header{background:var(--white);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.header-logo{display:flex;align-items:center;gap:12px;}
+.header-logo svg{height:28px;}
+.header-title{font-size:16px;font-weight:700;color:var(--navy);}
+.header-subtitle{font-size:12px;color:var(--text-light);}
+.header-time{font-size:11px;color:var(--text-light);background:var(--light-blue);padding:4px 12px;border-radius:12px;}
+.progress-container{background:var(--white);padding:12px 32px;border-bottom:1px solid var(--border);}
+.progress-bar{max-width:700px;margin:0 auto;display:flex;align-items:center;gap:0;}
+.p-step{display:flex;align-items:center;flex:1;}
+.p-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--gray);color:var(--text-light);flex-shrink:0;transition:all .3s;}
+.p-step.active .p-circle{background:var(--blue);color:white;}
+.p-step.done .p-circle{background:var(--green);color:white;}
+.p-label{font-size:10px;margin-left:6px;color:var(--text-light);white-space:nowrap;}
+.p-step.active .p-label{color:var(--blue);font-weight:500;}
+.p-line{flex:1;height:2px;background:var(--border);margin:0 6px;}
+.p-step.done .p-line{background:var(--green);}
+.progress-info{text-align:center;margin-top:8px;font-size:11px;color:var(--text-light);}
+.main{max-width:900px;margin:20px auto;padding:0 20px;}
+.section{display:none;animation:fadeIn .3s ease;}
+.section.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;margin-bottom:16px;border:1px solid var(--border);}
+.card-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.card-desc{font-size:12px;color:var(--text-light);margin-bottom:16px;}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.form-input,.form-select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;transition:border-color .2s;}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 2px rgba(0,112,242,0.1);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--gray);font-size:9px;color:var(--text-light);cursor:help;position:relative;}
+.tooltip-icon:hover::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--navy);color:white;font-size:10px;padding:6px 10px;border-radius:4px;white-space:nowrap;z-index:999;font-weight:400;}
+.optional-badge{font-size:9px;color:var(--text-light);background:var(--gray);padding:1px 6px;border-radius:8px;margin-left:6px;}
+/* Question styles */
+.q-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;transition:border-color .2s;}
+.q-card:hover{border-color:var(--sky);}
+/* .q-card.answered border-left now set dynamically per domain */
+.q-num{font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;margin-bottom:4px;}
+.q-text{font-size:13px;font-weight:500;margin-bottom:10px;color:var(--text);}
+.scale-opts{display:flex;gap:3px;}
+.scale-opt{flex:1;text-align:center;}
+.scale-opt input{display:none;}
+.scale-opt label{display:block;padding:6px 3px;border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .2s;font-size:10px;line-height:1.3;}
+.scale-opt label:hover{background:var(--light-blue);border-color:var(--sky);}
+.scale-opt input:checked+label{background:var(--blue);color:white;border-color:var(--blue);}
+.scale-num{font-size:13px;font-weight:700;display:block;margin-bottom:1px;}
+/* Pain Point selection */
+.pp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pp-chip{padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s;font-size:12px;}
+.pp-chip:hover{border-color:var(--sky);background:var(--light-blue);}
+.pp-chip.selected{border-color:var(--blue);background:var(--light-blue);font-weight:500;}
+.pp-chip.pp-recommended{border-color:var(--blue);border-style:dashed;}
+.pp-chip .pp-domain{font-size:9px;color:var(--text-light);margin-top:2px;}
+.pp-counter{text-align:center;font-size:12px;color:var(--text-light);margin-bottom:12px;}
+/* Rating for selected PPs */
+.pp-rate{padding:14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;}
+.pp-rate-title{font-size:13px;font-weight:500;margin-bottom:8px;}
+.pp-rate-row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+.rate-group{display:flex;align-items:center;gap:4px;}
+.rate-group span{font-size:10px;color:var(--text-light);min-width:50px;}
+.rate-btn{width:26px;height:26px;border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:500;transition:all .2s;}
+.rate-btn:hover{border-color:var(--sky);}
+.rate-btn.active-impact{background:var(--blue);color:white;border-color:var(--blue);}
+.rate-btn.active-urgency{background:var(--orange);color:white;border-color:var(--orange);}
+/* Results */
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.result-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;border:1px solid var(--border);}
+.result-card.full{grid-column:1/-1;}
+.result-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--light-blue);}
+.value-big{font-size:24px;font-weight:700;color:var(--blue);}
+.value-range{font-size:11px;color:var(--text-light);}
+.confidence-badge{display:inline-block;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.conf-high{background:#E8F5E9;color:var(--green);}
+.conf-medium{background:#FFF8E1;color:var(--orange);}
+.conf-low{background:#FBE9E7;color:var(--red);}
+.opp-card{padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:all .2s;}
+.opp-card:hover{border-color:var(--sky);}
+.opp-card .opp-type{font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:2px;}
+.opp-card .opp-title{font-size:12px;font-weight:500;}
+.opp-card .opp-meta{font-size:10px;color:var(--text-light);margin-top:4px;}
+.opp-quickwin .opp-type{color:var(--green);}
+.opp-strategic .opp-type{color:var(--blue);}
+.opp-incremental .opp-type{color:var(--orange);}
+.opp-monitor .opp-type{color:var(--red);}
+.trace-detail{display:none;background:var(--bg);padding:10px;border-radius:4px;margin-top:8px;font-size:10px;line-height:1.6;}
+.trace-detail.open{display:block;}
+.trace-row{display:flex;gap:8px;margin-bottom:3px;}
+.trace-label{color:var(--text-light);min-width:100px;}
+.value-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.value-row:last-child{border-bottom:none;}
+.exec-summary{background:var(--navy);color:white;border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.exec-summary h3{font-size:14px;margin-bottom:10px;color:var(--sky);}
+.exec-summary p{font-size:12px;line-height:1.8;opacity:0.9;}
+.chart-container{position:relative;width:100%;max-height:300px;}
+.scenario-tabs{display:flex;gap:4px;margin-bottom:12px;}
+.scenario-tab{padding:6px 14px;border-radius:16px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--white);}
+.scenario-tab.active{background:var(--blue);color:white;border-color:var(--blue);}
+.scenario-tab:hover:not(.active){background:var(--light-blue);}
+.opp-value{font-weight:600;color:var(--blue);transition:opacity 0.2s;}
+.disclaimer{font-size:10px;color:var(--text-light);font-style:italic;margin-top:12px;padding:8px;background:var(--bg);border-radius:4px;}
+.btn-row{display:flex;justify-content:space-between;margin-top:20px;padding-top:14px;border-top:1px solid var(--border);}
+.btn{padding:9px 22px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all .2s;}
+.btn-primary{background:var(--blue);color:white;}
+.btn-primary:hover{background:#005BC8;}
+.btn-secondary{background:var(--white);color:var(--blue);border:1px solid var(--blue);}
+.btn-secondary:hover{background:var(--light-blue);}
+@media(max-width:768px){.form-row,.form-row-3,.results-grid,.pp-grid{grid-template-columns:1fr;}.scale-opts{flex-wrap:wrap;}.pp-rate-row{flex-direction:column;align-items:flex-start;}}
+@media print{.header,.progress-container,.btn-row,.export-bar{display:none;}.section{display:block!important;page-break-inside:avoid;}.main{max-width:100%;}.result-card{break-inside:avoid;box-shadow:none;border:1px solid #ccc;}}
+/* Export Bar */
+.export-bar{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-bottom:16px;padding:12px 16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);}
+.export-bar .export-label{font-size:11px;font-weight:600;color:var(--text-light);margin-right:auto;}
+.btn-export{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all .2s;}
+.btn-export-excel{background:#1D6F42;color:white;}
+.btn-export-excel:hover{background:#185A36;}
+.btn-export-sheets{background:#0F9D58;color:white;}
+.btn-export-sheets:hover{background:#0B8043;}
+.btn-export:disabled{opacity:0.5;cursor:not-allowed;}
+.export-status{font-size:10px;color:var(--text-light);margin-top:4px;}
+/* Gated Content */
+.gated-wrapper{position:relative;border-radius:var(--radius);overflow:hidden;margin-bottom:16px;}
+.gated-blur{filter:blur(6px);pointer-events:none;user-select:none;opacity:0.7;}
+.gated-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.6);backdrop-filter:blur(2px);z-index:10;padding:30px;text-align:center;}
+.gated-overlay .gated-icon{width:48px;height:48px;border-radius:50%;background:var(--light-blue);display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+.gated-overlay .gated-icon svg{width:24px;height:24px;fill:var(--blue);}
+.gated-overlay .gated-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.gated-overlay .gated-desc{font-size:12px;color:var(--text-light);line-height:1.6;margin-bottom:20px;max-width:400px;}
+.gated-overlay .gated-cta{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:var(--blue);color:white;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .2s;box-shadow:0 4px 12px rgba(0,112,242,0.3);}
+.gated-overlay .gated-cta:hover{background:#005BC8;transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,112,242,0.4);}
+.gated-divider{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:24px 0 8px 0;}
+.gated-divider::before,.gated-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.gated-divider-text{font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;}
+/* Unlocked state */
+body.unlocked .gated-blur{filter:none;pointer-events:auto;user-select:auto;opacity:1;}
+body.unlocked .gated-overlay{display:none!important;}
+body.unlocked #ctaSection{display:none!important;}
+.unlock-badge{position:fixed;top:12px;right:12px;z-index:9999;background:#188918;color:white;font-size:10px;font-weight:600;padding:5px 12px;border-radius:12px;display:none;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;}
+body.unlocked .unlock-badge{display:flex;}
+/* DART Integration & Financial Section */
+.dart-search-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+.dart-search-row input{flex:1;}
+.btn-dart{padding:8px 14px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--blue);background:var(--white);color:var(--blue);font-family:inherit;white-space:nowrap;transition:all .2s;}
+.btn-dart:hover{background:var(--light-blue);}
+.dart-status{font-size:11px;padding:8px 12px;border-radius:4px;margin-bottom:12px;}
+.dart-dropdown{position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--white);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);max-height:240px;overflow-y:auto;display:none;box-shadow:0 6px 16px rgba(0,0,0,0.1);}
+.dart-dropdown.open{display:block;}
+.dart-dropdown-item{padding:10px 14px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bg);transition:background .15s;}
+.dart-dropdown-item:hover,.dart-dropdown-item.active{background:var(--light-blue);}
+.dart-dropdown-item .dart-corp-name{font-weight:500;color:var(--navy);}
+.dart-dropdown-item .dart-corp-info{font-size:10px;color:var(--text-light);}
+.dart-dropdown-item .dart-corp-code{font-size:9px;color:var(--text-light);font-family:monospace;}
+.dart-dropdown-loading{padding:12px 14px;font-size:11px;color:var(--text-light);text-align:center;}
+.dart-dropdown-empty{padding:12px 14px;font-size:11px;color:var(--orange);text-align:center;}
+.fin-unit{font-size:10px;color:var(--text-light);margin-top:2px;}
+.fin-section-toggle{font-size:11px;color:var(--blue);cursor:pointer;margin-top:8px;display:inline-block;}
+.fin-section-toggle:hover{text-decoration:underline;}
+
+/* ── Toast / Inline Alert ── */
+.toast-bar{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9999;
+  display:flex;align-items:center;gap:10px;
+  padding:12px 18px;border-radius:8px;font-size:13px;font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,0.15);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  max-width:90vw;white-space:pre-wrap;}
+.toast-bar.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+.toast-bar.error{background:#FBE9E7;color:var(--red);border:1px solid #f5c2c2;}
+.toast-bar.warning{background:#FFF8E1;color:#856404;border:1px solid #ffe083;}
+.toast-bar.info{background:var(--light-blue);color:var(--navy);border:1px solid var(--sky);}
+.toast-bar .toast-icon{font-size:16px;flex-shrink:0;}
+.inline-err{font-size:11px;color:var(--red);margin-top:4px;display:none;}
+.form-input.err,.form-select.err{border-color:var(--red)!important;}
+</style>
+</head>
+<body>
+<div class="unlock-badge" onclick="toggleUnlock()">FULL MODE</div>
+<div class="toast-bar" id="toastBar"><span class="toast-icon" id="toastIcon"></span><span id="toastMsg"></span></div>
+
+<!-- Landing / Intro Screen -->
+<div id="landingScreen">
+<div style="max-width:640px;margin:40px auto;padding:0 20px;">
+
+<!-- Hero Title -->
+<div style="text-align:center;margin-bottom:32px;">
+<svg viewBox="0 0 412.4 204" xmlns="http://www.w3.org/2000/svg" style="height:40px;margin-bottom:16px;"><defs><linearGradient id="sapLogo1" gradientUnits="userSpaceOnUse" x1="206.19" y1="206" x2="206.19" y2="2" gradientTransform="matrix(1 0 0 -1 0 206)"><stop offset="0" style="stop-color:#00B8F1"/><stop offset=".02" style="stop-color:#01B6F0"/><stop offset=".31" style="stop-color:#0D90D9"/><stop offset=".58" style="stop-color:#1775C8"/><stop offset=".82" style="stop-color:#1C65BF"/><stop offset="1" style="stop-color:#1E5FBB"/></linearGradient></defs><polyline fill="url(#sapLogo1)" points="0,204 208.4,204 412.4,0 0,0 0,204"/><path fill="#FFF" d="M244.7,38.4h-40.6v96.5l-35.5-96.6h-35.2l-30.3,80.7C100,98.7,79,91.7,62.4,86.4C51.5,82.9,39.8,77.7,40,72c0.1-4.7,6.2-9,18.4-8.4c8.2,0.4,15.4,1.1,29.7,8l14.1-24.5c-13.1-6.6-31.2-10.9-46-10.9h-0.1c-17.3,0-31.7,5.6-40.6,14.8c-6.2,6.3-9.7,14.8-9.7,23.7C5.5,87.2,10.1,96,19.7,103c8.1,5.9,18.5,9.8,27.6,12.6c11.3,3.5,20.5,6.5,20.4,13c-0.1,2.4-1,4.7-2.7,6.4c-2.8,2.9-7.1,4-13.1,4.1c-11.5,0.2-20-1.6-33.6-9.6L5.8,154.4c14,8,29.9,12.2,46,12.2h2.1c14.2-0.2,25.7-4.3,34.9-11.7c0.5-0.4,1-0.8,1.5-1.3l-4.1,10.9H123l6.2-18.8c7,2.3,14.3,3.5,21.7,3.4c7.2,0,14.3-1.1,21.2-3.2l6,18.6h60.1v-39h13.1c31.7,0,50.5-16.2,50.5-43.2C301.7,52.2,283.5,38.4,244.7,38.4z M150.9,121c-4.4,0-8.8-0.7-13-2.3l12.9-40.6h0.2l12.6,40.7C159.6,120.3,155.2,121,150.9,121z M247.1,97.7h-8.9V64.9h8.9c11.9,0,21.4,4,21.4,16.1C268.5,93.7,259,97.6,247.1,97.7"/></svg>
+<h1 style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px;">제조 AI 전환 Quick Assessment</h1>
+<p style="font-size:13px;color:var(--blue);font-weight:500;">SAP AXIOUS T/F</p>
+</div>
+
+<!-- Introduction -->
+<div class="card" style="border-left:3px solid var(--blue);">
+<div class="card-title">진단 소개</div>
+<div style="font-size:12px;line-height:1.9;color:var(--text);">
+<p style="margin-bottom:10px;">본 진단은 귀사의 <strong>Manufacturing AI 전환 성숙도</strong>를 빠르게 파악하고, 데이터 기반으로 <strong>우선순위 개선 영역</strong>과 <strong>예상 비즈니스 가치</strong>를 도출하는 빠른 진단 도구입니다.</p>
+<p style="margin-bottom:10px;"><strong>진단 구성 (5단계, 약 10~15분)</strong></p>
+<ol style="padding-left:18px;margin-bottom:10px;">
+<li>비즈니스 현황 — 기업 정보 및 재무 데이터</li>
+<li>성숙도 평가 — 6개 영역 디지털/AI 성숙도 평가 (24문항)</li>
+<li>핵심 과제 — 과제 선택 및 우선순위 평가</li>
+<li>KPI 입력 — 선택 입력으로 분석 정확도 향상</li>
+<li>결과 — 성숙도 프로파일, 우선순위 맵, 가치 추정 결과</li>
+</ol>
+<p style="font-size:11px;color:var(--text-light);">본 진단 결과는 SAP VLM(Value Lifecycle Manager) 글로벌 벤치마크 데이터에 기반한 방향적 추정치이며, 상세 분석을 위한 심층 분석 워크숍(Deep Dive)의 사전 진단 자료로 활용됩니다.</p>
+</div>
+</div>
+
+<!-- Respondent Info -->
+<div class="card">
+<div class="card-title">응답자 정보</div>
+<div class="card-desc">진단 결과의 신뢰성 확보 및 후속 커뮤니케이션을 위해 아래 정보를 입력해 주세요.</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">담당자명 *</label><input class="form-input" id="resp_name" placeholder="홍길동"></div>
+<div class="form-group"><label class="form-label">직급 *</label><input class="form-input" id="resp_title" placeholder="과장 / 팀장 / 임원 등"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">부서 *</label><input class="form-input" id="resp_dept" placeholder="IT기획팀 / 생산관리부 등"></div>
+<div class="form-group">
+  <label class="form-label">연락처 (이메일) *</label>
+  <input class="form-input" type="email" id="resp_email" placeholder="name@company.com"
+    oninput="document.getElementById('resp_email_err').style.display='none';this.style.borderColor=''">
+  <div id="resp_email_err" style="display:none;font-size:11px;color:var(--red);margin-top:4px;">올바른 이메일 형식으로 입력해 주세요. (예: name@company.com)</div>
+</div>
+</div>
+<div class="form-group"><label class="form-label">회사명 *</label><input class="form-input" id="resp_company" placeholder="회사명을 입력하세요"></div>
+</div>
+
+<!-- Start Button -->
+<div style="text-align:center;margin-top:24px;">
+<button class="btn btn-primary" style="padding:14px 40px;font-size:15px;border-radius:8px;" onclick="startAssessment()">진단 시작하기 →</button>
+<p style="font-size:10px;color:var(--text-light);margin-top:10px;">입력하신 정보는 진단 결과 리포트에 포함되며, 외부에 공유되지 않습니다.</p>
+</div>
+
+</div>
+</div>
+
+<!-- Header (hidden until assessment starts) -->
+<div class="header" id="mainHeader" style="display:none;">
+<div class="header-logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 돌아가기">
+<svg viewBox="0 0 412.4 204" xmlns="http://www.w3.org/2000/svg" style="height:28px;"><defs><linearGradient id="sapLogo2" gradientUnits="userSpaceOnUse" x1="206.19" y1="206" x2="206.19" y2="2" gradientTransform="matrix(1 0 0 -1 0 206)"><stop offset="0" style="stop-color:#00B8F1"/><stop offset=".02" style="stop-color:#01B6F0"/><stop offset=".31" style="stop-color:#0D90D9"/><stop offset=".58" style="stop-color:#1775C8"/><stop offset=".82" style="stop-color:#1C65BF"/><stop offset="1" style="stop-color:#1E5FBB"/></linearGradient></defs><polyline fill="url(#sapLogo2)" points="0,204 208.4,204 412.4,0 0,0 0,204"/><path fill="#FFF" d="M244.7,38.4h-40.6v96.5l-35.5-96.6h-35.2l-30.3,80.7C100,98.7,79,91.7,62.4,86.4C51.5,82.9,39.8,77.7,40,72c0.1-4.7,6.2-9,18.4-8.4c8.2,0.4,15.4,1.1,29.7,8l14.1-24.5c-13.1-6.6-31.2-10.9-46-10.9h-0.1c-17.3,0-31.7,5.6-40.6,14.8c-6.2,6.3-9.7,14.8-9.7,23.7C5.5,87.2,10.1,96,19.7,103c8.1,5.9,18.5,9.8,27.6,12.6c11.3,3.5,20.5,6.5,20.4,13c-0.1,2.4-1,4.7-2.7,6.4c-2.8,2.9-7.1,4-13.1,4.1c-11.5,0.2-20-1.6-33.6-9.6L5.8,154.4c14,8,29.9,12.2,46,12.2h2.1c14.2-0.2,25.7-4.3,34.9-11.7c0.5-0.4,1-0.8,1.5-1.3l-4.1,10.9H123l6.2-18.8c7,2.3,14.3,3.5,21.7,3.4c7.2,0,14.3-1.1,21.2-3.2l6,18.6h60.1v-39h13.1c31.7,0,50.5-16.2,50.5-43.2C301.7,52.2,283.5,38.4,244.7,38.4z M150.9,121c-4.4,0-8.8-0.7-13-2.3l12.9-40.6h0.2l12.6,40.7C159.6,120.3,155.2,121,150.9,121z M247.1,97.7h-8.9V64.9h8.9c11.9,0,21.4,4,21.4,16.1C268.5,93.7,259,97.6,247.1,97.7"/></svg>
+<div><div class="header-title">제조 AI 전환</div><div class="header-subtitle">빠른 진단 · SAP AXIOUS T/F</div></div>
+</div>
+<div class="header-time">예상 소요: 10~15분</div>
+</div>
+
+<!-- Progress (hidden until assessment starts) -->
+<div class="progress-container" id="mainProgress" style="display:none;">
+<div class="progress-bar" id="progressBar">
+<div class="p-step active" data-step="0"><div class="p-circle">1</div><span class="p-label">비즈니스 현황</span><div class="p-line"></div></div>
+<div class="p-step" data-step="1"><div class="p-circle">2</div><span class="p-label">성숙도</span><div class="p-line"></div></div>
+<div class="p-step" data-step="2"><div class="p-circle">3</div><span class="p-label">핵심과제</span><div class="p-line"></div></div>
+<div class="p-step" data-step="3"><div class="p-circle">4</div><span class="p-label">KPI 입력</span><div class="p-line"></div></div>
+<div class="p-step" data-step="4"><div class="p-circle">5</div><span class="p-label">결과</span></div>
+</div>
+<div class="progress-info" id="progressInfo">4단계 중 1단계 · 남은 필수 항목: 4개</div>
+</div>
+
+<!-- Main (hidden until assessment starts) -->
+<div class="main" id="mainContent" style="display:none;">
+
+<!-- ============ STEP 1: BUSINESS CONTEXT ============ -->
+<div class="section active" id="sec-0">
+<div class="card">
+<div class="card-title">비즈니스 현황</div>
+<div class="card-desc">기본 정보를 입력합니다. 정확한 수치가 없으면 범위 선택 또는 "모름"을 선택할 수 있습니다.</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">회사명 *</label><input class="form-input" id="inp_company" placeholder="회사명 입력"></div>
+<div class="form-group"><label class="form-label">산업 분류 * <span class="tooltip-icon" data-tip="SAP 공식 산업 분류 기준 (sap.com/industries)">?</span></label>
+<select class="form-select" id="inp_industry" onchange="renderKPIRanges()"><option value="">선택하세요</option>
+<option value="Aerospace and Defense">항공우주 및 방위 (Aerospace and Defense)</option>
+<option value="Automotive">자동차 (Automotive)</option>
+<option value="Chemicals">화학 (Chemical)</option>
+<option value="Consumer Products">소비재 (Consumer Products)</option>
+<option value="High Tech">하이테크 (High Tech)</option>
+<option value="Industrial Manufacturing">산업 제조 (Industrial Manufacturing)</option>
+<option value="Life Sciences and Healthcare">생명과학 (Life Sciences)</option>
+<option value="Mill Products">소재/철강 (Mill Products)</option>
+<option value="Mining">광업 (Mining)</option>
+<option value="Oil, Gas, and Energy">석유·가스·에너지 (Oil & Gas & Energy)</option>
+</select></div>
+</div>
+<div class="form-row-3">
+<div class="form-group"><label class="form-label">기업 규모 *</label>
+<select class="form-select" id="inp_size"><option value="">선택</option>
+<option value="small">중소 (매출 ~1,000억원)</option>
+<option value="mid">중견 (1,000억~1조원)</option>
+<option value="large">대기업 (1조원 이상)</option></select></div>
+<div class="form-group"><label class="form-label">매출 규모 <span class="optional-badge">선택</span></label>
+<select class="form-select" id="inp_revenue"><option value="">범위 선택 또는 모름</option>
+<option value="500">~500억원</option><option value="1500">500억~2,000억원</option>
+<option value="4000">2,000억~7,000억원</option><option value="10000">7,000억~2조원</option>
+<option value="30000">2조원 이상</option></select></div>
+<div class="form-group"><label class="form-label">공장 수 *</label>
+<select class="form-select" id="inp_plants"><option value="">선택</option>
+<option value="0">0개 (공장 없음)</option>
+<option value="1">1개</option><option value="3">2–5개</option>
+<option value="8">6–10개</option><option value="15">10개 이상</option></select></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label">주요 비즈니스 우선순위 * <span class="tooltip-icon" data-tip="현재 경영진이 가장 중요시하는 방향">?</span></label>
+<select class="form-select" id="inp_priority"><option value="">선택</option>
+<option value="cost">원가 절감 / 효율화</option>
+<option value="quality">품질 및 컴플라이언스 강화</option>
+<option value="agility">시장 대응 속도 / 유연성</option>
+<option value="growth">매출 성장 / 신제품 확대</option>
+<option value="sustainability">지속가능성 / ESG 대응</option>
+<option value="digital">디지털 전환 / AI 도입</option></select></div>
+<div class="form-group"><label class="form-label">진단 관점</label>
+<select class="form-select" id="inp_horizon">
+<option value="Tactical">전술적 (1–2년)</option>
+<option value="Strategic">전략적 (3–5년)</option>
+<option value="Operational">운영 (6개월 이내)</option></select></div>
+</div>
+</div>
+
+
+<!-- Optional Financial Detail Section -->
+<div class="card">
+<div class="card-title">재무 정보 <span class="optional-badge">선택 입력 · 상세 분석용</span></div>
+<div class="card-desc">정확한 재무 데이터 입력 시 가치 추정의 정밀도가 높아집니다. 직접 입력하거나 DART 공시정보에서 불러올 수 있습니다.</div>
+
+<!-- DART Search -->
+<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px;padding:12px;background:var(--bg);border-radius:var(--radius);border:1px dashed var(--border);">
+<div style="flex:1;position:relative;">
+<label class="form-label" style="margin-bottom:4px;">DART 공시정보 연동 <span class="tooltip-icon" data-tip="금융감독원 전자공시시스템(DART)의 최근 사업보고서 재무데이터를 자동으로 불러옵니다">?</span></label>
+<input class="form-input" id="dart_search" placeholder="회사명 입력 시 자동 검색 (예: 삼성, 현대, 포스코)" style="font-size:12px;" autocomplete="off" oninput="dartAutocomplete(this.value)" onkeydown="dartInputKeydown(event)">
+<div id="dartDropdown" class="dart-dropdown"></div>
+</div>
+<button class="btn btn-secondary" onclick="searchDART()" style="white-space:nowrap;height:36px;font-size:11px;padding:0 14px;">
+<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="margin-right:4px;vertical-align:-1px;"><path d="M11.7 10.3l3.6 3.6-1.4 1.4-3.6-3.6c-1.1.8-2.5 1.3-4 1.3C2.9 13 0 10.1 0 6.5S2.9 0 6.5 0 13 2.9 13 6.5c0 1.5-.5 2.9-1.3 4zM6.5 11C8.9 11 11 8.9 11 6.5S8.9 2 6.5 2 2 4.1 2 6.5 4.1 11 6.5 11z"/></svg>
+불러오기
+</button>
+</div>
+<div id="dartStatus" style="display:none;font-size:11px;padding:8px 12px;border-radius:4px;margin-bottom:12px;"></div>
+
+<!-- Financial Inputs -->
+<div class="form-row-3">
+<div class="form-group"><label class="form-label">매출액 (억원) <span class="tooltip-icon" data-tip="최근 회계연도 연결 기준 매출액">?</span></label>
+<input class="form-input fin-opt" type="number" id="fin_revenue" placeholder="미입력 시 규모 기반 추정"></div>
+<div class="form-group"><label class="form-label">매출원가 (억원) <span class="tooltip-icon" data-tip="매출원가(COGS). 미입력 시 산업 평균 비율 적용">?</span></label>
+<input class="form-input fin-opt" type="number" id="fin_cogs" placeholder="미입력 시 산업평균 적용"></div>
+<div class="form-group"><label class="form-label">영업이익 (억원)</label>
+<input class="form-input fin-opt" type="number" id="fin_op_profit" placeholder="선택"></div>
+</div>
+<div class="form-row-3">
+<div class="form-group"><label class="form-label">제조원가 (억원) <span class="tooltip-icon" data-tip="제조원가명세서 기준 당기 제조원가">?</span></label>
+<input class="form-input fin-opt" type="number" id="fin_mfg_cost" placeholder="선택"></div>
+<div class="form-group"><label class="form-label">인건비 (억원) <span class="tooltip-icon" data-tip="제조 인건비 또는 전체 인건비">?</span></label>
+<input class="form-input fin-opt" type="number" id="fin_labor" placeholder="선택"></div>
+<div class="form-group"><label class="form-label">재고자산 (억원) <span class="tooltip-icon" data-tip="원재료+재공품+제품 합계 재고자산 금액">?</span></label>
+<input class="form-input fin-opt" type="number" id="fin_inventory" placeholder="선택"></div>
+</div>
+<div class="form-row-3">
+<div class="form-group"><label class="form-label">설비투자/감가상각 (억원)</label>
+<input class="form-input fin-opt" type="number" id="fin_capex" placeholder="선택"></div>
+<div class="form-group"><label class="form-label">R&D 비용 (억원)</label>
+<input class="form-input fin-opt" type="number" id="fin_rnd" placeholder="선택"></div>
+<div class="form-group"><label class="form-label">종업원 수 (명)</label>
+<input class="form-input fin-opt" type="number" id="fin_headcount" placeholder="선택"></div>
+</div>
+<div class="disclaimer" style="margin-top:8px;">입력된 재무 데이터는 가치 추정의 기반(매출 기준)으로만 활용되며, 별도 저장·전송되지 않습니다. DART 연동은 향후 API 연결 예정입니다.</div>
+</div>
+<div class="btn-row"><div></div><button class="btn btn-primary" onclick="goStep(1)">다음: 성숙도 진단 →</button></div>
+</div>
+
+<!-- ============ STEP 2: FOCUSED MATURITY ============ -->
+<div class="section" id="sec-1">
+<div class="card">
+<div class="card-title">성숙도 평가</div>
+<div class="card-desc">각 영역에 대해 현재 수준을 평가합니다. 기본 4문항 + 관심 영역 심화 문항</div>
+<div id="maturityContainer"></div>
+</div>
+<div class="btn-row"><button class="btn btn-secondary" onclick="goStep(0)">← 이전</button><button class="btn btn-primary" onclick="goStep(2)">다음: 핵심 과제 →</button></div>
+</div>
+
+<!-- ============ STEP 3: PRIORITY CHALLENGES ============ -->
+<div class="section" id="sec-2">
+<div class="card">
+<div class="card-title">핵심 비즈니스 과제</div>
+<div class="card-desc">가장 중요한 비즈니스 문제를 최대 5개 선택하세요.</div>
+<div class="pp-counter" id="ppCounter">선택: 0 / 5</div>
+<div class="pp-grid" id="ppGrid"></div>
+</div>
+<div class="card" id="ppRatingCard" style="display:none;">
+<div class="card-title">선택한 Challenge 상세 평가</div>
+<div class="card-desc">각 항목의 사업 영향도와 긴급도를 평가하세요. (실행 난이도는 시스템이 추정합니다)</div>
+<div id="ppRatingContainer"></div>
+</div>
+<div class="btn-row"><button class="btn btn-secondary" onclick="goStep(1)">← 이전</button><button class="btn btn-primary" onclick="goStep(3)">다음: KPI 입력 →</button></div>
+</div>
+
+<!-- ============ STEP 4: KPI 선택 입력 ============ -->
+<div class="section" id="sec-3">
+<div class="card" style="border:2px dashed var(--blue);">
+  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+    <span style="font-size:28px;line-height:1;">📊</span>
+    <div>
+      <div class="card-title" style="margin-bottom:4px;">운영 KPI 입력 <span class="optional-badge">선택 입력</span></div>
+      <div style="font-size:13px;color:var(--text-light);line-height:1.7;">이 정보를 입력하면 가치 추정의 정확도가 크게 높아집니다.<br>모르시면 그냥 건너뛰어도 됩니다 — 산업 평균 벤치마크가 자동으로 적용됩니다.</div>
+    </div>
+  </div>
+  <div style="background:var(--light-blue);border-radius:6px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:var(--navy);">
+    💡 입력한 수치가 업계 평균보다 낮을수록 <strong>더 큰 개선 기회</strong>와 <strong>더 높은 가치 추정치</strong>가 도출됩니다.
+  </div>
+  <div id="kpiBenchmarkNote" class="disclaimer" style="margin-bottom:12px;display:none;"></div>
+  <div class="form-row-3" id="kpiRangeContainer">
+    <div style="font-size:12px;color:var(--text-light);grid-column:1/-1;text-align:center;padding:20px;">산업 정보를 불러오는 중...</div>
+  </div>
+  <div class="disclaimer" style="margin-top:14px;font-size:11px;">
+    * 미입력 항목은 선택하신 산업의 SAP VLM 글로벌 벤치마크 <strong>평균값</strong>으로 자동 대체됩니다.<br>
+    * 결과 페이지에 신뢰도(높음/보통/낮음)로 표시되며, 추후 추가 입력으로 재계산할 수 있습니다.
+  </div>
+</div>
+<div class="btn-row">
+  <button class="btn btn-secondary" onclick="goStep(2)">← 이전</button>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-secondary" onclick="calculateAndShow()">건너뛰고 결과 보기</button>
+    <button class="btn btn-primary" onclick="calculateAndShow()">결과 보기 →</button>
+  </div>
+</div>
+</div>
+
+<!-- ============ STEP 5: RESULTS ============ -->
+<div class="section" id="sec-4">
+<div id="resultsContainer"></div>
+<div class="btn-row"><button class="btn btn-secondary" onclick="goStep(3)">← 수정하기</button><button class="btn btn-primary" onclick="window.print()">결과 인쇄 / PDF 저장</button></div>
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// VLM BENCHMARKS - Source: SAP Value Lifecycle Manager
+// Verified industries: Automotive, Life Sciences, High Tech
+// Other industries use Automotive as fallback (marked in results)
+// ============================================================
+// VLM BENCHMARKS - 11 Industries × 15 KPIs
+// Source: SAP VLM Value Content Data (parsed from 91 files)
+// Missing KPIs filled with proxy from similar industries
+// ============================================================
+const VLM_BENCHMARKS = {
+  "Aerospace and Defense": {
+    "oee":{top25:85.0,avg:77.9,bot25:70.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:80.0,avg:73.3,bot25:60.0,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:90.0,avg:82.4,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:93.0,avg:87.5,bot25:80.0,impact:"판관비",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.31,avg:1.01,bot25:1.53,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:5.0,avg:7.6,bot25:10.0,impact:"매출",kpi:"비계획 가동중단 (%) [Proxy(Industrial Manufacturing)]"},
+    "inventory":{top25:78.6,avg:104.6,bot25:130.3,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:30.0,avg:83.1,bot25:100.0,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:8.0,avg:12.7,bot25:17.0,impact:"매출",kpi:"출시 소요기간 (개월) [Proxy(Industrial Manufacturing)]"},
+    "maintenance":{top25:0.8,avg:3.6,bot25:5.4,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "inv_carrying":{top25:0.02,avg:1.39,bot25:1.54,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Industrial Manufacturing)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Automotive": {
+    "oee":{top25:80.0,avg:72.8,bot25:64.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:78.8,bot25:69.0,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:95.0,avg:86.4,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:92.0,avg:80.8,bot25:70.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.21,avg:1.0,bot25:2.5,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:3.9,avg:4.7,bot25:6.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:42.6,avg:55.7,bot25:73.0,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:2.0,avg:9.8,bot25:18.4,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:12.0,avg:14.5,bot25:20.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:0.8,avg:2.0,bot25:3.3,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:15.6,avg:55.6,bot25:78.1,impact:"매출원가",kpi:"제조원가 (매출 대비 %)"},
+    "logistics":{top25:2.9,avg:5.9,bot25:9.4,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %)"},
+    "inv_carrying":{top25:0.83,avg:1.53,bot25:2.5,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.02,avg:0.22,bot25:0.63,impact:"매출",kpi:"품절 매출 손실 (%)"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Chemicals": {
+    "oee":{top25:90.0,avg:83.8,bot25:76.7,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:86.0,avg:76.1,bot25:68.0,impact:"매출원가",kpi:"설비 가동률 (%) [Proxy(Mill Products)]"},
+    "otd":{top25:92.5,avg:85.9,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:82.0,avg:71.7,bot25:65.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.12,avg:1.06,bot25:2.4,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:3.0,avg:7.2,bot25:10.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:40.5,avg:63.9,bot25:88.1,impact:"운전자본",kpi:"재고일수 (일) [Proxy(Mill Products)]"},
+    "cycletime":{top25:2.0,avg:11.2,bot25:21.0,impact:"매출",kpi:"제조 사이클타임 (일) [Proxy(Mill Products)]"},
+    "ttm":{top25:9.0,avg:12.0,bot25:12.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:1.7,avg:3.0,bot25:4.6,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:23.4,avg:55.1,bot25:73.5,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Mill Products)]"},
+    "logistics":{top25:4.9,avg:8.0,bot25:10.3,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Mill Products)]"},
+    "inv_carrying":{top25:0.87,avg:1.39,bot25:2.42,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %) [Proxy(Mill Products)]"},
+    "stockout_loss":{top25:0.17,avg:0.2,bot25:0.41,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Mill Products)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Consumer Products": {
+    "oee":{top25:84.0,avg:71.9,bot25:61.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:77.7,bot25:69.5,impact:"매출원가",kpi:"설비 가동률 (%) [Proxy(Industrial Manufacturing)]"},
+    "otd":{top25:97.0,avg:90.5,bot25:85.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:84.0,avg:73.5,bot25:65.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.6,avg:1.77,bot25:3.06,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:5.0,avg:8.4,bot25:12.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:48.2,avg:76.7,bot25:107.4,impact:"운전자본",kpi:"재고일수 (일) [Proxy(Industrial Manufacturing)]"},
+    "cycletime":{top25:7.0,avg:17.1,bot25:31.0,impact:"매출",kpi:"제조 사이클타임 (일) [Proxy(Industrial Manufacturing)]"},
+    "ttm":{top25:6.0,avg:8.8,bot25:12.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:1.3,avg:2.5,bot25:3.8,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "inv_carrying":{top25:1.03,avg:1.79,bot25:2.81,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Industrial Manufacturing)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "High Tech": {
+    "oee":{top25:89.1,avg:72.1,bot25:56.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:80.0,avg:69.6,bot25:60.0,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:95.0,avg:87.2,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:80.0,avg:65.3,bot25:50.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.26,avg:1.34,bot25:2.73,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:5.0,avg:7.6,bot25:10.0,impact:"매출",kpi:"비계획 가동중단 (%) [Proxy(Industrial Manufacturing)]"},
+    "inventory":{top25:43.7,avg:71.8,bot25:98.6,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:5.0,avg:6.8,bot25:12.0,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:6.0,avg:11.7,bot25:18.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:1.2,avg:2.1,bot25:3.3,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:27.7,avg:44.7,bot25:84.0,impact:"매출원가",kpi:"제조원가 (매출 대비 %)"},
+    "logistics":{top25:1.7,avg:5.2,bot25:7.2,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %)"},
+    "inv_carrying":{top25:0.25,avg:0.76,bot25:1.82,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.02,avg:0.17,bot25:0.5,impact:"매출",kpi:"품절 매출 손실 (%)"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Industrial Manufacturing": {
+    "oee":{top25:88.0,avg:78.2,bot25:70.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:77.7,bot25:69.5,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:92.6,avg:86.3,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:90.0,avg:79.9,bot25:68.9,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.17,avg:1.34,bot25:3.0,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:5.0,avg:7.6,bot25:10.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:48.2,avg:76.7,bot25:107.4,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:7.0,avg:17.1,bot25:31.0,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:8.0,avg:12.7,bot25:17.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:0.8,avg:3.6,bot25:5.4,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %)"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %)"},
+    "inv_carrying":{top25:1.03,avg:1.79,bot25:2.81,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%)"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %)"},
+  },
+  "Life Sciences": {
+    "oee":{top25:90.0,avg:73.9,bot25:57.7,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:89.0,avg:75.2,bot25:64.0,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:95.0,avg:88.7,bot25:83.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:80.0,avg:72.2,bot25:65.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.15,avg:2.41,bot25:4.12,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:6.0,avg:8.7,bot25:15.0,impact:"매출",kpi:"비계획 가동중단 (%) [Proxy(Mill Products)]"},
+    "inventory":{top25:101.1,avg:144.6,bot25:184.3,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:5.0,avg:19.6,bot25:40.0,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:18.0,avg:22.7,bot25:29.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:1.3,avg:3.9,bot25:6.2,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:21.1,avg:36.3,bot25:49.9,impact:"매출원가",kpi:"제조원가 (매출 대비 %)"},
+    "logistics":{top25:3.2,avg:5.0,bot25:6.5,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %)"},
+    "inv_carrying":{top25:0.44,avg:2.08,bot25:3.98,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.13,avg:0.64,bot25:0.98,impact:"매출",kpi:"품절 매출 손실 (%)"},
+    "warranty":{top25:0.025,avg:0.688,bot25:1.949,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %)"},
+  },
+  "Mill Products": {
+    "oee":{top25:86.0,avg:76.4,bot25:65.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:86.0,avg:76.1,bot25:68.0,impact:"매출원가",kpi:"설비 가동률 (%)"},
+    "otd":{top25:94.5,avg:85.7,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:90.0,avg:77.2,bot25:66.0,impact:"매출",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:1.0,avg:3.15,bot25:5.85,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %)"},
+    "downtime":{top25:6.0,avg:8.7,bot25:15.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:40.5,avg:63.9,bot25:88.1,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:2.0,avg:11.2,bot25:21.0,impact:"매출",kpi:"제조 사이클타임 (일)"},
+    "ttm":{top25:3.0,avg:6.5,bot25:12.0,impact:"매출",kpi:"출시 소요기간 (개월)"},
+    "maintenance":{top25:1.2,avg:3.6,bot25:5.0,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:23.4,avg:55.1,bot25:73.5,impact:"매출원가",kpi:"제조원가 (매출 대비 %)"},
+    "logistics":{top25:4.9,avg:8.0,bot25:10.3,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %)"},
+    "inv_carrying":{top25:0.87,avg:1.39,bot25:2.42,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.17,avg:0.2,bot25:0.41,impact:"매출",kpi:"품절 매출 손실 (%)"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Mining": {
+    "oee":{top25:80.0,avg:77.0,bot25:72.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:77.7,bot25:69.5,impact:"매출원가",kpi:"설비 가동률 (%) [Proxy(Industrial Manufacturing)]"},
+    "otd":{top25:90.0,avg:84.1,bot25:75.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:82.0,avg:80.3,bot25:80.0,impact:"판관비",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.17,avg:1.34,bot25:3.0,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "downtime":{top25:2.0,avg:3.9,bot25:7.0,impact:"매출",kpi:"비계획 가동중단 (%) [Proxy(Oil, Gas, and Energy)]"},
+    "inventory":{top25:31.0,avg:72.7,bot25:111.2,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:7.0,avg:17.1,bot25:31.0,impact:"매출",kpi:"제조 사이클타임 (일) [Proxy(Industrial Manufacturing)]"},
+    "ttm":{top25:8.0,avg:12.7,bot25:17.0,impact:"매출",kpi:"출시 소요기간 (개월) [Proxy(Industrial Manufacturing)]"},
+    "maintenance":{top25:5.0,avg:9.6,bot25:15.1,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "inv_carrying":{top25:0.44,avg:1.45,bot25:2.46,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %) [Proxy(Oil, Gas, and Energy)]"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Industrial Manufacturing)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Oil, Gas, and Energy": {
+    "oee":{top25:96.0,avg:85.5,bot25:77.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:77.7,bot25:69.5,impact:"매출원가",kpi:"설비 가동률 (%) [Proxy(Industrial Manufacturing)]"},
+    "otd":{top25:91.0,avg:81.8,bot25:76.3,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:90.0,avg:85.6,bot25:75.0,impact:"판관비",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.17,avg:1.34,bot25:3.0,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "downtime":{top25:2.0,avg:3.9,bot25:7.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:5.8,avg:30.3,bot25:50.6,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:7.0,avg:17.1,bot25:31.0,impact:"매출",kpi:"제조 사이클타임 (일) [Proxy(Industrial Manufacturing)]"},
+    "ttm":{top25:8.0,avg:12.7,bot25:17.0,impact:"매출",kpi:"출시 소요기간 (개월) [Proxy(Industrial Manufacturing)]"},
+    "maintenance":{top25:1.6,avg:4.2,bot25:7.8,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "inv_carrying":{top25:0.44,avg:1.45,bot25:2.46,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Industrial Manufacturing)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+  "Utilities": {
+    "oee":{top25:97.0,avg:84.8,bot25:72.0,impact:"매출",kpi:"설비종합효율 OEE (%)"},
+    "capacity":{top25:85.0,avg:77.7,bot25:69.5,impact:"매출원가",kpi:"설비 가동률 (%) [Proxy(Industrial Manufacturing)]"},
+    "otd":{top25:95.0,avg:87.1,bot25:80.0,impact:"세전이익률",kpi:"납기 준수율 (%)"},
+    "forecast":{top25:97.0,avg:83.1,bot25:70.0,impact:"판관비",kpi:"수요 예측 정확도 (%)"},
+    "scrap":{top25:0.17,avg:1.34,bot25:3.0,impact:"매출원가",kpi:"스크랩률 (제조원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "downtime":{top25:1.0,avg:6.1,bot25:10.0,impact:"매출",kpi:"비계획 가동중단 (%)"},
+    "inventory":{top25:13.6,avg:34.1,bot25:73.0,impact:"운전자본",kpi:"재고일수 (일)"},
+    "cycletime":{top25:7.0,avg:17.1,bot25:31.0,impact:"매출",kpi:"제조 사이클타임 (일) [Proxy(Industrial Manufacturing)]"},
+    "ttm":{top25:8.0,avg:12.7,bot25:17.0,impact:"매출",kpi:"출시 소요기간 (개월) [Proxy(Industrial Manufacturing)]"},
+    "maintenance":{top25:1.8,avg:5.3,bot25:9.1,impact:"매출원가",kpi:"자산 유지보수 비용 (매출 대비 %)"},
+    "mfg_cost":{top25:28.2,avg:57.9,bot25:82.4,impact:"매출원가",kpi:"제조원가 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "logistics":{top25:2.1,avg:5.6,bot25:7.9,impact:"매출원가",kpi:"총 물류비 (매출원가 대비 %) [Proxy(Industrial Manufacturing)]"},
+    "inv_carrying":{top25:0.3,avg:1.1,bot25:1.49,impact:"세전이익률",kpi:"재고 유지비 (매출 대비 %)"},
+    "stockout_loss":{top25:0.36,avg:1.32,bot25:2.01,impact:"매출",kpi:"품절 매출 손실 (%) [Proxy(Industrial Manufacturing)]"},
+    "warranty":{top25:0.238,avg:0.679,bot25:1.429,impact:"세전이익률",kpi:"보증 비용 (매출 대비 %) [Proxy(Industrial Manufacturing)]"},
+  },
+};
+
+// ============================================================
+// INDUSTRY BENCHMARK MAPPING (SAP 공식 23개 산업 → VLM Data)
+// ============================================================
+function getBenchmarks(industry) {
+  // Direct matches with VLM data (11 industries)
+  if (VLM_BENCHMARKS[industry]) return { data: VLM_BENCHMARKS[industry], source: "SAP VLM 산업 벤치마크", validated: true, mappedTo: industry };
+  
+  // SAP 23 Industries → VLM 11 mapping
+  const VLM_MAPPING = {
+    "Agribusiness": {data:"Consumer Products", label:"SAP VLM (소비재 프록시)"},
+    "Construction and Real Estate": {data:"Industrial Manufacturing", label:"SAP VLM (산업 제조 프록시)"},
+    "Defense and Security": {data:"Aerospace and Defense", label:"SAP VLM (항공방위 프록시)"},
+    "Education and Research": {data:"High Tech", label:"SAP VLM (하이테크 프록시)"},
+    "Financial Services": {data:"High Tech", label:"SAP VLM (하이테크 프록시)"},
+    "Government": {data:"Industrial Manufacturing", label:"SAP VLM (산업 제조 프록시)"},
+    "Life Sciences and Healthcare": {data:"Life Sciences", label:"SAP VLM (생명과학)"},
+    "Media, Sports, and Entertainment": {data:"High Tech", label:"SAP VLM (하이테크 프록시)"},
+    "Professional Services": {data:"High Tech", label:"SAP VLM (하이테크 프록시)"},
+    "Retail": {data:"Consumer Products", label:"SAP VLM (소비재 프록시)"},
+    "Telecommunications": {data:"High Tech", label:"SAP VLM (하이테크 프록시)"},
+    "Travel and Transportation": {data:"Industrial Manufacturing", label:"SAP VLM (산업 제조 프록시)"},
+    "Wholesale Distribution": {data:"Consumer Products", label:"SAP VLM (소비재 프록시)"}
+  };
+  
+  if (VLM_MAPPING[industry]) {
+    const map = VLM_MAPPING[industry];
+    return { data: VLM_BENCHMARKS[map.data], source: map.label, validated: false, mappedTo: map.data };
+  }
+  
+  // Fallback
+  return { data: VLM_BENCHMARKS["Industrial Manufacturing"], source: "일반 참조 (산업 제조 프록시)", validated: false, mappedTo: "Industrial Manufacturing" };
+}
+
+// ============================================================
+// INDUSTRIES WITH VALIDATED VLM DATA
+// ============================================================
+const VALIDATED_INDUSTRIES = ["Automotive","Pharmaceuticals","Medical Technology","High Tech","Life Sciences and Healthcare","Aerospace and Defense"];
+
+// ============================================================
+// MATURITY QUESTIONS - Focused (2 core + 1 bonus per domain)
+// Selection criteria: No SAP jargon, covers data/process/decision capability
+// ============================================================
+const DOMAINS = ["Foundation","Product","Manufacturing","Asset","Sustainability"];
+const DOMAIN_LABELS = {
+  Foundation:"디지털 기반 (Data & Integration)",
+  Product:"제품 개발 (Product & PLM)",
+  Manufacturing:"생산·제조 (Manufacturing)",
+  Asset:"설비·자산 (Asset Management)",
+  Sustainability:"지속가능성 (Sustainability)"
+};
+
+// ============================================================
+// MATURITY QUESTIONS - 4 core per domain (24 total) + 1 bonus per focus domain
+// Weight Methodology: VLM-based financial impact calculation
+//   weight = normalized(Gap% × ImpactMultiplier) across 11 industries
+//   Gap% = (avg - top25) / avg (higher-is-better) or (top25 - avg) / avg (lower-is-better)
+//   Normalized within domain: highest impact = 1.20, lowest = 0.80~0.93
+// Source: SAP VLM Value Content Data (91 files, 11 industries, 4194 rows parsed)
+// ============================================================
+// 6 domains x 4 core + 1 bonus = 24 core + up to 6 bonus = 24~30 questions
+const MATURITY_QS = [
+  // ---- FOUNDATION (Data & Integration) ----
+  {id:"F1",domain:"Foundation",core:true,
+   q:"다양한 시스템(ERP, MES, PLM 등)의 데이터를 통합하여 의사결정에 활용하는 수준은?",
+   a:["시스템별 분리, 수작업 취합","일부 영역 통합 시도","주요 시스템 연결됨","실시간 통합 대시보드","AI 기반 자동 인사이트"],
+   w:0.93, vd:"데이터 통합 비용 절감", kpiLink:"inventory"},
+  {id:"F2",domain:"Foundation",core:true,
+   q:"제조 현장의 데이터(설비 센서, 공정 파라미터 등)를 실시간으로 수집·활용하고 있나요?",
+   a:["수작업 기록 위주","일부 센서 설치","실시간 수집 중","이상 감지 자동화","AI 예측·의사결정 연계"],
+   w:1.05, vd:"데이터 품질 향상", kpiLink:"downtime"},
+  {id:"F3",domain:"Foundation",core:true,
+   q:"공급망 전체(공급자~고객)의 현황을 실시간으로 파악할 수 있나요?",
+   a:["각 부서 개별 관리","일부 공급자 연결","주요 Tier1 가시성","전체 E2E 가시성 확보","AI 리스크 사전 예측"],
+   w:1.2, vd:"이행 문제로 인한 매출 손실 감소", kpiLink:"stockout_loss"},
+  {id:"F4",domain:"Foundation",core:true,
+   q:"AI/ML 활용을 위한 데이터 거버넌스(품질, 보안, 윤리)가 갖춰져 있나요?",
+   a:["체계 없음","부분적 정책","전사 정책 수립","준수·감사 체계","AI 윤리·자동 추적"],
+   w:0.93, vd:"컴플라이언스 및 리스크 관리 비용 절감", kpiLink:"inventory"},
+  {id:"F5",domain:"Foundation",core:false,
+   q:"마스터 데이터(자재, 거래처, BOM)의 정합성과 단일화 수준은?",
+   a:["시스템별 상이","부분 정리 시도","MDM 도구 일부 사용","전사 단일화 달성","AI 자동 정제·관리"],
+   w:0.93, vd:"데이터 통합 비용 절감", kpiLink:"inventory"},
+
+  // ---- PRODUCT (Product & PLM) ----
+  {id:"P1",domain:"Product",core:true,
+   q:"제품 데이터(BOM, 설계, 사양)가 통합 관리되고 변경 이력이 추적되나요?",
+   a:["2D 도면, 파편화","부분 디지털화","통합 PLM 사용","설계-생산 연결","AI 기반 자동 최적화"],
+   w:1.02, vd:"신제품 출시 기간 단축", kpiLink:"ttm"},
+  {id:"P2",domain:"Product",core:true,
+   q:"설계 변경(ECO/ECN)이 생산과 공급망에 미치는 영향을 사전에 파악할 수 있나요?",
+   a:["사후 파악만 가능","수작업 분석","시스템 기반 영향 분석","시뮬레이션 활용","DT/AI 자동 예측"],
+   w:1.2, vd:"설계 변경 비용 절감", kpiLink:"cycletime"},
+  {id:"P3",domain:"Product",core:true,
+   q:"제품 품질 이력(Lot, Serial)을 고객까지 추적(Traceability)할 수 있나요?",
+   a:["추적 불가","공정 단위만","Lot 기반 추적","Serial 단위 추적","AI 예측적 품질 관리"],
+   w:1.05, vd:"보증 비용 절감", kpiLink:"warranty"},
+  {id:"P4",domain:"Product",core:true,
+   q:"고객 맞춤형 제품(CTO/ETO) 견적과 구성을 시스템으로 처리할 수 있나요?",
+   a:["모두 신규 개발 대응","사전 승인 사양만","Configurator 일부","실시간 견적·구성","AI 최적 구성 제안"],
+   w:1.02, vd:"제품 개인화를 통한 매출 성장", kpiLink:"ttm"},
+  {id:"P5",domain:"Product",core:false,
+   q:"디지털 트윈을 활용하여 제품 시뮬레이션·검증을 수행하나요?",
+   a:["물리적 시험만","CAE 부분 활용","가상 시험 병행","DT 기반 검증","AI+DT 자율 최적화"],
+   w:1.02, vd:"신제품 출시 기간 단축", kpiLink:"ttm"},
+
+  // ---- MANUFACTURING (Production) ----
+  {id:"M1",domain:"Manufacturing",core:true,
+   q:"생산 계획 수립 시 자재·설비·인력 가용성을 종합적으로 고려하나요?",
+   a:["경험 기반 수작업","자재만 시스템","자재+설비 연계","통합 최적화 (APS)","AI 실시간 재계획"],
+   w:0.87, vd:"수요 예측 정확도 향상", kpiLink:"forecast"},
+  {id:"M2",domain:"Manufacturing",core:true,
+   q:"품질 이상을 생산 중에 실시간으로 감지하거나 예측할 수 있나요?",
+   a:["완제품 검사만","수동 샘플링","SPC 기반 관리","실시간 감시·경보","AI 예측·자동 조치"],
+   w:1.2, vd:"스크랩 비용 절감", kpiLink:"scrap"},
+  {id:"M3",domain:"Manufacturing",core:true,
+   q:"제조원가(재료비, 노무비, 경비)를 실시간으로 파악하고 분석할 수 있나요?",
+   a:["월말 사후 정산만","일/주 단위 집계","실시간 원가 추적","편차 자동 분석","AI 원가 예측·최적화"],
+   w:1.06, vd:"제조 간접비 절감", kpiLink:"mfg_cost"},
+  {id:"M4",domain:"Manufacturing",core:true,
+   q:"원재료 투입량, 수율(Yield), 로스를 체계적으로 측정·개선하고 있나요?",
+   a:["측정하지 않음","총량 수준 관리","공정별 Yield 추적","실시간 로스 모니터","AI 투입 최적화"],
+   w:1.2, vd:"제조 직접재료비 절감", kpiLink:"scrap"},
+  {id:"M5",domain:"Manufacturing",core:false,
+   q:"주문-생산-출하 전 과정의 리드타임을 실시간으로 관리하나요?",
+   a:["사후 분석만","주요 구간만","전체 가시성 확보","자동 병목 경보","AI 납기 자동 조정"],
+   w:0.83, vd:"납기 준수율 향상", kpiLink:"otd"},
+  {id:"M6",domain:"Manufacturing",core:true,
+   q:"현장 작업자가 실시간 생산 데이터를 기반으로 즉시 의사결정할 수 있나요?",
+   a:["정보 접근 어려움","일일 배치 보고","실시간 대시보드 운용","이상 시 자동 알림·지시","AI 사전 가이드 및 자동 조치"],
+   w:0.93, vd:"총 제조원가 절감", kpiLink:"mfg_cost"},
+  {id:"M7",domain:"Manufacturing",core:false,
+   q:"숙련 작업자의 노하우(암묵지)가 디지털로 축적되어 현장에서 활용되나요?",
+   a:["개인에 의존","문서화 시도 중","Wiki/매뉴얼 시스템 운용","영상·AR 가이드 제공","AI 지식 자동 추출·추천"],
+   w:1.0, vd:"총 제조원가 절감", kpiLink:"mfg_cost"},
+
+  // ---- ASSET (Asset Management) ----
+  {id:"A1",domain:"Asset",core:true,
+   q:"설비 유지보수는 어떤 방식으로 관리하고 있나요?",
+   a:["고장 후 수리(사후)","주기적 예방보전","조건 기반(CBM)","예지정비(Predictive)","AI 처방적 유지보수"],
+   w:1.17, vd:"비계획 가동중단 감소", kpiLink:"downtime"},
+  {id:"A2",domain:"Asset",core:true,
+   q:"설비 상태 데이터를 실시간으로 모니터링하고 이상을 자동 감지하나요?",
+   a:["수동 점검만","일부 센서 장착","실시간 모니터링","이상치 자동 경고","AI 조치까지 자동화"],
+   w:1.2, vd:"자산 유지보수 비용 절감", kpiLink:"maintenance"},
+  {id:"A3",domain:"Asset",core:true,
+   q:"OEE(설비종합효율)를 체계적으로 측정하고 Loss 분석을 하고 있나요?",
+   a:["측정하지 않음","수작업 일일 집계","시스템 자동 집계","실시간 OEE+Loss 분석","AI 기반 자동 개선"],
+   w:0.92, vd:"설비종합효율(OEE) 향상", kpiLink:"oee"},
+  {id:"A4",domain:"Asset",core:true,
+   q:"설비 자산의 전체 수명주기(도입-운영-폐기) 비용을 관리하나요?",
+   a:["관리하지 않음","취득원가만 관리","감가상각 추적","TCO 분석 수행","AI 최적 교체 시점 제안"],
+   w:1.2, vd:"자산 유지보수 비용 절감", kpiLink:"maintenance"},
+  {id:"A5",domain:"Asset",core:false,
+   q:"개별 설비의 에너지 소비를 모니터링하고 비효율을 감지하나요?",
+   a:["전체 계량만","구역별 모니터","설비별 모니터링","실시간 비효율 경보","AI 자동 최적화"],
+   w:1.2, vd:"연료 및 전력 비용 절감", kpiLink:"maintenance"},
+  {id:"A6",domain:"Asset",core:true,
+   q:"작업장 안전을 IoT/데이터 기반으로 실시간 모니터링하고 위험을 사전에 감지하나요?",
+   a:["수기 점검만","CCTV 수준 모니터링","IoT 위치 추적 운용","건강+환경 실시간 감시·경보","AI 위험 사전 예방 및 자동 대응"],
+   w:1.2, vd:"비계획 가동중단 감소", kpiLink:"downtime"},
+
+  // ---- SUSTAINABILITY ----
+  {id:"S1",domain:"Sustainability",core:true,
+   q:"탄소 배출(Scope 1-2-3)을 체계적으로 측정하고 관리하고 있나요?",
+   a:["추적하지 않음","Scope 1만 부분 추적","Scope 1-2 추적","Scope 1-2-3 추적","AI 기반 감축 자동 연동"],
+   w:1.09, vd:"탄소 배출 비용 절감", kpiLink:"maintenance"},
+  {id:"S2",domain:"Sustainability",core:true,
+   q:"에너지 소비를 체계적으로 모니터링하고 최적화하고 있나요?",
+   a:["모니터링 없음","전체 계량기 수준","구역별 모니터링","실시간 설비별 관리","AI 자동 최적화"],
+   w:1.09, vd:"연료 및 전력 비용 절감", kpiLink:"maintenance"},
+  {id:"S3",domain:"Sustainability",core:true,
+   q:"폐기물 발생량을 추적하고 순환경제(Circular) 활동을 관리하나요?",
+   a:["추적하지 않음","총량만 관리","공정별 분류 추적","감축 목표 연동","AI 재활용 최적화"],
+   w:1.2, vd:"폐기물 발생 비용 절감", kpiLink:"scrap"},
+  {id:"S4",domain:"Sustainability",core:true,
+   q:"ESG 보고 및 규제 대응(EU CSRD, K-Taxonomy 등)이 시스템화되어 있나요?",
+   a:["수기 대응","기초 수준 수집","시스템 기반 집계","자동 보고·감사","AI 규제 변화 자동 반영"],
+   w:0.94, vd:"컴플라이언스 및 리스크 관리 비용 절감", kpiLink:"inventory"},
+  {id:"S5",domain:"Sustainability",core:false,
+   q:"물류·운송의 탄소 발자국을 추적하고 녹색 물류를 실행하나요?",
+   a:["추적 안 함","연간 보고 수준","경로별 추적","실시간 최적화","AI 녹색 물류 자동 계획"],
+   w:1.07, vd:"총 물류 비용 절감", kpiLink:"logistics"}
+];
+
+// ============================================================
+// PAIN POINTS - Customer language, linked to VLM Value Drivers
+// ============================================================
+const PAIN_POINTS = [
+  {id:"PP01",text:"생산 계획 변경에 빠르게 대응하기 어렵다",domain:"Manufacturing",vd:"수요 예측 정확도 향상",kpi:"forecast",impact:"매출",
+   sapSolution:"SAP IBP (Integrated Business Planning)",sapCategory:"SCM·계획",applicability:4},
+  {id:"PP02",text:"설비 고장을 사전에 예측하기 어렵다",domain:"Asset",vd:"비계획 가동중단 감소",kpi:"downtime",impact:"매출",
+   sapSolution:"SAP Predictive Asset Insights",sapCategory:"자산 관리",applicability:5},
+  {id:"PP03",text:"품질 문제를 생산 후에야 발견한다",domain:"Manufacturing",vd:"스크랩 비용 절감",kpi:"scrap",impact:"매출원가",
+   sapSolution:"SAP Digital Manufacturing (Quality)",sapCategory:"제조·품질",applicability:5},
+  {id:"PP04",text:"제품/설계 변경의 영향을 추적하기 어렵다",domain:"Product",vd:"신제품 출시 기간 단축",kpi:"ttm",impact:"매출",
+   sapSolution:"SAP PLM / Engineering Control Center",sapCategory:"제품 개발",applicability:4},
+  {id:"PP05",text:"데이터가 여러 시스템에 분산되어 있다",domain:"Foundation",vd:"데이터 통합 비용 절감",kpi:"inventory",impact:"판관비",
+   sapSolution:"SAP BTP / Integration Suite",sapCategory:"디지털 기반",applicability:5},
+  {id:"PP06",text:"재고가 많지만 필요한 자재는 부족하다",domain:"Manufacturing",vd:"재고일수 감소",kpi:"inventory",impact:"운전자본",
+   sapSolution:"SAP IBP + S/4HANA Manufacturing",sapCategory:"SCM·계획",applicability:4},
+  {id:"PP07",text:"현장 작업이 수작업과 문서에 의존한다",domain:"Manufacturing",vd:"총 제조원가 절감",kpi:"mfg_cost",impact:"매출원가",
+   sapSolution:"SAP Digital Manufacturing (MES)",sapCategory:"제조·품질",applicability:5},
+  {id:"PP08",text:"에너지/탄소 데이터를 정확히 파악하기 어렵다",domain:"Sustainability",vd:"탄소 배출 비용 절감",kpi:"maintenance",impact:"매출원가",
+   sapSolution:"SAP Sustainability Control Tower",sapCategory:"ESG·지속가능성",applicability:4},
+  {id:"PP09",text:"유지보수 비용이 과도하다",domain:"Asset",vd:"자산 유지보수 비용 절감",kpi:"maintenance",impact:"매출원가",
+   sapSolution:"SAP Asset Performance Management",sapCategory:"자산 관리",applicability:5},
+  {id:"PP10",text:"납기를 자주 지키지 못한다",domain:"Manufacturing",vd:"납기 준수율 향상",kpi:"otd",impact:"세전이익률",
+   sapSolution:"SAP IBP + S/4HANA Order Management",sapCategory:"SCM·계획",applicability:4},
+  {id:"PP11",text:"신제품 출시에 시간이 너무 걸린다",domain:"Product",vd:"신제품 출시 기간 단축",kpi:"ttm",impact:"매출",
+   sapSolution:"SAP PLM + Digital Manufacturing",sapCategory:"제품 개발",applicability:3},
+  {id:"PP12",text:"공급망 리스크를 사전에 감지하기 어렵다",domain:"Foundation",vd:"이행 문제로 인한 매출 손실 감소",kpi:"stockout_loss",impact:"매출",
+   sapSolution:"SAP IBP + BTP AI/ML",sapCategory:"디지털 기반",applicability:3},
+];
+
+// ============================================================
+// CAPTURE RATES by scenario (conservative/expected/ambitious)
+// Based on industry implementation experience
+// ============================================================
+const CAPTURE_RATES = {
+  // Conservative: 10-20% of gap, Expected: 20-40%, Ambitious: 40-60%
+  conservative: 0.15,
+  expected: 0.30,
+  ambitious: 0.50
+};
+
+// ============================================================
+// DOUBLE COUNTING GROUPS
+// Pain Points in same group share same underlying value pool
+// When multiple PPs in same group are selected, apply diminishing factor
+// ============================================================
+const DC_GROUPS = {
+  "capacity_revenue": ["PP01","PP02","PP10"], // All affect production capacity/revenue
+  "cost_manufacturing": ["PP03","PP07"],       // Both affect manufacturing cost
+  "inventory_wc": ["PP06","PP05"]             // Both affect working capital
+};
+// Diminishing factor: 2nd item in same group gets 0.5x, 3rd gets 0.3x
+const DC_FACTORS = [1.0, 0.5, 0.3, 0.2];
+
+// ============================================================
+// BEST PRACTICES - Source: SAP VLM Best Practice Library
+// Areas: Manufacturing, Asset Management, R&D/Engineering
+// Usage: Show relevant practices based on maturity gaps
+// ============================================================
+const BEST_PRACTICES = {
+  "Manufacturing": {
+    "Planning": [
+      "모든 수요와 제약조건을 반영한 최적화된 상세 생산 계획을 수립한다",
+      "수요 또는 자원 가용성의 긴급 변동에 대응하여 생산 계획을 신속히 갱신한다",
+      "완전한 제조 성과 데이터를 활용하여 생산 계획 프로세스를 지속적으로 개선한다"
+    ],
+    "Execution": [
+      "계획과 현장 운영 간 제조 계획·오더·상태에 대한 양방향 페이퍼리스 커뮤니케이션이 이루어진다",
+      "ERP가 현장 재고와 통합되어 린 제조 개선을 위한 실시간 조치를 수행한다",
+      "지능형 제조 시스템이 설비 성능 데이터를 지속 분석하여 편차를 식별하고 실시간 조정한다",
+      "제조 실적 디지털 트윈을 기록하여 설계 대비 실제 생산 결과를 파악한다",
+      "공정 중 생산 로트의 현재 위치·상태를 파악하고 변화하는 수요에 더 빠르게 대응한다"
+    ],
+    "Quality": [
+      "고객 관점에서 품질을 정의하고 현재·예상 니즈에 기반한 데이터 기반 의사결정을 수행한다",
+      "품질 문제에 대한 근본 원인 분석·추적·보고를 위한 공식적이고 폐쇄 루프 절차가 수립되어 있다",
+      "검사 계획에 데이터 기반 접근법을 적용하여 반응형 품질 검사 프로세스를 운영한다",
+      "제품의 모든 단계에 걸쳐 문제를 정의·예측·개선하는 협업 프로세스가 존재한다"
+    ],
+    "Analytics": [
+      "생산 로트에 대한 완전한 제조 공정 데이터를 수집하여 전체 추적성을 확보한다",
+      "제조 공정 데이터를 지속적으로 분석하여 편차 추세를 발견한다",
+      "제조 편차 비용을 추적하고 기업 전반에 걸쳐 공유한다",
+      "제조 성과에 대한 글로벌 관점을 확보하여 사업장 간 경쟁과 협업을 가능케 한다"
+    ],
+    "Engineering": [
+      "제품의 설계 디지털 트윈을 활용하여 MBOM 및 라우팅 개선을 위해 상·하류 공정과 동기화한다",
+      "디지털 트윈을 사용하여 공장과 생산 시스템을 시각화·평가·재구성할 수 있다",
+      "체계적인 검토·리스크 완화·승인을 통해 제조 변경을 관리한다",
+      "맞춤형 제품 제공을 위해 생산 공정의 커스터마이징을 자동화한다"
+    ],
+    "EHS": [
+      "직원들이 EHS 사고·아차사고·안전 리스크를 신속하고 효율적으로 보고·기록할 수 있다",
+      "제품 및 운영의 환경 영향을 지속적으로 추적하고 최소화한다",
+      "개별 작업자의 안전을 자동 모니터링하는 커넥티드 워크포스 플랫폼을 보유하고 있다"
+    ]
+  },
+  "Asset": {
+    "Strategy": [
+      "자산관리에 대해 국제적으로 인정된 관리 표준을 채택하고 있다",
+      "자산 수명주기 전반에 걸쳐 OEM·서비스 제공업체·파트너와 긴밀히 협업한다",
+      "조직 내외부에서 자산 성과를 벤치마킹하여 운영 우수성을 추진한다"
+    ],
+    "Information": [
+      "중앙 관리되는 자산 마스터 데이터 거버넌스 프로세스가 수립되어 있다",
+      "자산 데이터가 엔지니어링·운영·유지보수에 걸쳐 통합되어 단일 정보 소스를 제공한다",
+      "시뮬레이션·계획·의사결정 지원을 위해 자산 디지털 트윈을 활용한다"
+    ],
+    "Maintenance": [
+      "전용 분석 대시보드를 통해 유지보수 운영을 실시간으로 분석한다",
+      "정기보수(STO) 작업을 안전하게, 예산 내에서 완료한다",
+      "예측 분석을 활용하여 유지보수 일정을 최적화하고 비계획 가동 중단을 감소시킨다",
+      "상태 모니터링 데이터 기반으로 자동 작업지시 생성 및 일정 수립을 수행한다"
+    ],
+    "EHS": [
+      "자산 및 운영의 환경 영향을 지속적으로 추적하고 최소화한다",
+      "실시간 모니터링 시스템이 위험 조건을 감지하고 자동 안전 대응을 실행한다",
+      "작업 허가 프로세스가 유지보수 및 운영 계획과 통합되어 있다"
+    ]
+  },
+  "Product": {
+    "Design": [
+      "고객 중심 요구사항이 신제품 개발을 이끌며 개발 주기 전반에 걸쳐 추적 가능하다",
+      "R&D 엔지니어가 시험·피드백을 통해 축적된 과거 지식에 접근하여 더 나은 설계 결정을 내린다",
+      "물리적 프로토타이핑 주기를 줄이기 위해 시뮬레이션 및 가상 검증이 통합되어 있다",
+      "제조 용이성(DFM) 원칙이 제품 개발 프로세스에 내재화되어 있다"
+    ],
+    "Lifecycle": [
+      "R&D 팀이 전체적인 제품 데이터를 활용하여 수명주기 전반의 지속적 설계 개선을 추진한다",
+      "새로운 설계·레시피를 제조로 이관하는 원활한 프로세스가 수립되어 있다",
+      "제품 변경이 엔지니어링·제조·공급망에 걸친 영향에 대해 체계적으로 평가된다"
+    ],
+    "Compliance": [
+      "가이드라인을 결정하고 관련 정보를 수집하는 협업 컴플라이언스 프로세스가 수립되어 있다",
+      "제품 분류 및 컴플라이언스 문서 생성 프로세스가 자동화되어 있다",
+      "규제 요건이 자동 준수 검사와 함께 설계 워크플로에 통합되어 있다"
+    ]
+  }
+};
+
+// ============================================================
+// BEST PRACTICE RECOMMENDATION ENGINE
+// Maps maturity gaps to relevant best practices
+// ============================================================
+function getBestPracticeRecommendations(domainScores, opportunities) {
+  const recommendations = [];
+  const DOMAIN_COLORS = {
+    Foundation:"#0070F2", Product:"#7B2FF7", Manufacturing:"#188918",
+    Asset:"#E76500", Sustainability:"#0A6E5C"
+  };
+  
+  // Sort domains by score (lowest first = biggest gaps)
+  const sorted = Object.entries(domainScores).sort((a,b) => a[1] - b[1]);
+  
+  // Take top 3 gap areas
+  sorted.slice(0, 3).forEach(([domain, score]) => {
+    const level = score < 2 ? "초기 단계" : score < 3 ? "발전 필요" : score < 4 ? "고도화 가능" : "최적화";
+    let practices = [];
+    
+    // Select practices based on domain and maturity level
+    if (domain === "Manufacturing") {
+      if (score < 2) practices = BEST_PRACTICES.Manufacturing.Execution.slice(0, 2).concat(BEST_PRACTICES.Manufacturing.Planning.slice(0, 1));
+      else if (score < 3) practices = BEST_PRACTICES.Manufacturing.Analytics.slice(0, 2).concat(BEST_PRACTICES.Manufacturing.Quality.slice(0, 1));
+      else practices = BEST_PRACTICES.Manufacturing.Engineering.slice(0, 2).concat(BEST_PRACTICES.Manufacturing.Analytics.slice(2, 3));
+    } else if (domain === "Asset") {
+      if (score < 2) practices = BEST_PRACTICES.Asset.Information.slice(0, 2).concat(BEST_PRACTICES.Asset.Strategy.slice(0, 1));
+      else if (score < 3) practices = BEST_PRACTICES.Asset.Maintenance.slice(0, 2).concat(BEST_PRACTICES.Asset.Information.slice(1, 2));
+      else practices = BEST_PRACTICES.Asset.Maintenance.slice(2, 4).concat(BEST_PRACTICES.Asset.Strategy.slice(1, 2));
+    } else if (domain === "Product") {
+      if (score < 2) practices = BEST_PRACTICES.Product.Design.slice(0, 2).concat(BEST_PRACTICES.Product.Lifecycle.slice(0, 1));
+      else if (score < 3) practices = BEST_PRACTICES.Product.Lifecycle.slice(1, 3).concat(BEST_PRACTICES.Product.Compliance.slice(0, 1));
+      else practices = BEST_PRACTICES.Product.Design.slice(2, 4).concat(BEST_PRACTICES.Product.Compliance.slice(1, 2));
+    } else if (domain === "Foundation") {
+      if (score < 2) practices = BEST_PRACTICES.Asset.Information.slice(0, 2).concat(BEST_PRACTICES.Manufacturing.Analytics.slice(0, 1));
+      else practices = BEST_PRACTICES.Manufacturing.Analytics.slice(1, 3).concat(BEST_PRACTICES.Asset.Information.slice(2, 3));
+    } else if (domain === "Sustainability") {
+      practices = BEST_PRACTICES.Manufacturing.EHS.slice(1, 2).concat(BEST_PRACTICES.Asset.EHS.slice(0, 2));
+    }
+    
+    if (practices.length > 0) {
+      recommendations.push({
+        domain: DOMAIN_LABELS[domain] || domain,
+        score: score.toFixed(1),
+        level,
+        color: DOMAIN_COLORS[domain] || "#0070F2",
+        practices: practices.slice(0, 3)
+      });
+    }
+  });
+  
+  return recommendations;
+}
+
+
+// ============================================================
+// APP STATE
+// ============================================================
+let currentStep = 0;
+let maturityAnswers = {};
+let selectedPPs = new Set();
+let ppRatings = {}; // {ppId: {impact:1-5, urgency:1-5}}
+let focusDomains = new Set(); // Domains to show bonus questions
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+function initApp() {
+  renderMaturity();
+  renderPainPoints();
+}
+
+// ============================================================
+// TOAST HELPER
+// ============================================================
+let _toastTimer = null;
+function showToast(msg, type = 'error', duration = 4000) {
+  const bar = document.getElementById('toastBar');
+  const msgEl = document.getElementById('toastMsg');
+  const iconEl = document.getElementById('toastIcon');
+  const icons = { error: '⚠️', warning: '💡', info: 'ℹ️' };
+  bar.className = `toast-bar ${type}`;
+  iconEl.textContent = icons[type] || '⚠️';
+  msgEl.textContent = msg;
+  bar.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => bar.classList.remove('show'), duration);
+}
+
+function goHome() {
+  if (!confirm('처음 화면으로 돌아가면 현재 입력 내용이 사라집니다. 계속하시겠습니까?')) return;
+
+  // 상태 초기화
+  try { clearStorage(); } catch(e) {}
+  currentStep = 0;
+  maturityAnswers = {};
+  selectedPPs = new Set();
+  ppRatings = {};
+  focusDomains = new Set();
+
+  // 화면 초기화 — 랜딩 복원, 어세스먼트 숨김
+  document.getElementById('landingScreen').style.display = '';
+  document.getElementById('mainHeader').style.display = 'none';
+  document.getElementById('mainProgress').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'none';
+
+  // 섹션 리셋
+  document.querySelectorAll('.section').forEach((s,i) => s.classList.toggle('active', i===0));
+  document.querySelectorAll('.p-step').forEach(s => { s.classList.remove('active','done'); });
+
+  // 입력값 초기화
+  ['resp_name','resp_title','resp_dept','resp_email','resp_company',
+   'inp_company','inp_industry','inp_size','inp_revenue','inp_plants',
+   'inp_priority','inp_horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  window.scrollTo(0,0);
+}
+
+// ============================================================
+// LANDING → ASSESSMENT TRANSITION
+// ============================================================
+function startAssessment() {
+  const nameVal = document.getElementById('resp_name').value.trim();
+
+  // TEST MODE: 담당자명이 'test'면 모든 검증 우회
+  if (nameVal.toLowerCase() === 'test') {
+    document.getElementById('inp_company').value = document.getElementById('resp_company').value || 'Test Corp';
+    document.getElementById('landingScreen').style.display = 'none';
+    document.getElementById('mainHeader').style.display = '';
+    document.getElementById('mainProgress').style.display = '';
+    document.getElementById('mainContent').style.display = '';
+    window.scrollTo(0,0);
+    return;
+  }
+
+  // Validate respondent info
+  const fields = ['resp_name','resp_title','resp_dept','resp_email','resp_company'];
+  const missing = fields.filter(id => !document.getElementById(id).value.trim());
+  if (missing.length > 0) {
+    showToast('응답자 정보를 모두 입력해 주세요.');
+    document.getElementById(missing[0]).focus();
+    return;
+  }
+  // 이메일 형식 검증 — 인라인 에러 표시
+  const email = document.getElementById('resp_email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const errEl = document.getElementById('resp_email_err');
+    const inputEl = document.getElementById('resp_email');
+    errEl.style.display = 'block';
+    inputEl.style.borderColor = 'var(--red)';
+    inputEl.focus();
+    return;
+  }
+  // Copy company name to business context
+  const companyName = document.getElementById('resp_company').value.trim();
+  document.getElementById('inp_company').value = companyName;
+  
+  // Hide landing, show assessment
+  document.getElementById('landingScreen').style.display = 'none';
+  document.getElementById('mainHeader').style.display = '';
+  document.getElementById('mainProgress').style.display = '';
+  document.getElementById('mainContent').style.display = '';
+  window.scrollTo(0,0);
+}
+
+// Get respondent info for results report
+function getRespondentInfo() {
+  return {
+    name: document.getElementById('resp_name')?.value || '',
+    title: document.getElementById('resp_title')?.value || '',
+    dept: document.getElementById('resp_dept')?.value || '',
+    email: document.getElementById('resp_email')?.value || '',
+    company: document.getElementById('resp_company')?.value || ''
+  };
+}
+// Current: DART OpenAPI Integration
+// ============================================================
+const DART_API_KEY = 'adb97af2c02e602496e97ecaac5bec71e8dfa0df';
+const DART_BASE = 'https://opendart.fss.or.kr/api';
+// === DART API 프록시 설정 ===
+// Cloudflare Workers 배포 후 아래 URL을 교체하세요 (끝에 / 포함)
+// 예: 'https://dart-proxy.your-name.workers.dev/'
+const DART_PROXY_CF = 'https://dart-proxy.jihyeon-jn-lee.workers.dev/';
+// 무료 공개 프록시 (Cloudflare 미설정 시 fallback)
+const DART_PROXY_PUBLIC = 'https://corsproxy.io/?';
+const DART_PROXY_FALLBACK = 'https://api.allorigins.win/raw?url=';
+
+// ============================================================
+// DART AUTOCOMPLETE - Embedded major Korean companies + live search
+// ============================================================
+const DART_COMPANIES = [
+  {corp_code:'00635134',name:'CJ제일제당',stock:'097950',sector:'식품'},
+  {corp_code:'00500254',name:'GS',stock:'078930',sector:'에너지'},
+  {corp_code:'00164830',name:'HD한국조선해양',stock:'009540',sector:'조선'},
+  {corp_code:'01390344',name:'HD현대중공업',stock:'329180',sector:'조선'},
+  {corp_code:'00105271',name:'KCC',stock:'002380',sector:'도료/건자재'},
+  {corp_code:'00105873',name:'LG디스플레이',stock:'034220',sector:'디스플레이'},
+  {corp_code:'00356370',name:'LG생활건강',stock:'051900',sector:'생활용품'},
+  {corp_code:'01515323',name:'LG에너지솔루션',stock:'373220',sector:'배터리'},
+  {corp_code:'00105961',name:'LG이노텍',stock:'011070',sector:'전자부품'},
+  {corp_code:'00401731',name:'LG전자',stock:'066570',sector:'전자'},
+  {corp_code:'00356361',name:'LG화학',stock:'051910',sector:'화학'},
+  {corp_code:'00105855',name:'LS일렉트릭',stock:'010120',sector:'전기장비'},
+  {corp_code:'00138279',name:'S-Oil',stock:'010950',sector:'정유'},
+  {corp_code:'00181712',name:'SK',stock:'034730',sector:'에너지'},
+  {corp_code:'00631518',name:'SK이노베이션',stock:'096770',sector:'에너지/화학'},
+  {corp_code:'00159023',name:'SK텔레콤',stock:'017670',sector:'통신'},
+  {corp_code:'00164779',name:'SK하이닉스',stock:'000660',sector:'반도체'},
+  {corp_code:'00102858',name:'고려아연',stock:'010130',sector:'비철금속'},
+  {corp_code:'00481454',name:'금호타이어',stock:'073240',sector:'타이어'},
+  {corp_code:'00106641',name:'기아',stock:'000270',sector:'자동차'},
+  {corp_code:'00266961',name:'네이버',stock:'035420',sector:'IT'},
+  {corp_code:'00108241',name:'농심',stock:'004370',sector:'식품'},
+  {corp_code:'00172291',name:'더존비즈온',stock:'012510',sector:'ERP'},
+  {corp_code:'00114792',name:'동국제강',stock:'001230',sector:'철강'},
+  {corp_code:'01105153',name:'두산로보틱스',stock:'454910',sector:'로봇'},
+  {corp_code:'01032486',name:'두산밥캣',stock:'241560',sector:'건설기계'},
+  {corp_code:'00159616',name:'두산에너빌리티',stock:'034020',sector:'중공업'},
+  {corp_code:'00165413',name:'롯데케미칼',stock:'011170',sector:'화학'},
+  {corp_code:'01042775',name:'만도',stock:'204320',sector:'자동차부품'},
+  {corp_code:'00126362',name:'삼성SDI',stock:'006400',sector:'배터리'},
+  {corp_code:'00126186',name:'삼성SDS',stock:'018260',sector:'IT서비스'},
+  {corp_code:'00877059',name:'삼성바이오로직스',stock:'207940',sector:'바이오'},
+  {corp_code:'00126371',name:'삼성전기',stock:'009150',sector:'전자부품'},
+  {corp_code:'00126380',name:'삼성전자',stock:'005930',sector:'전자'},
+  {corp_code:'00106669',name:'세아베스틸',stock:'001430',sector:'특수강'},
+  {corp_code:'00413046',name:'셀트리온',stock:'068270',sector:'바이오'},
+  {corp_code:'00138224',name:'쌍용C&E',stock:'003410',sector:'시멘트'},
+  {corp_code:'00583424',name:'아모레퍼시픽',stock:'090430',sector:'화장품'},
+  {corp_code:'00536541',name:'에코프로',stock:'086520',sector:'소재'},
+  {corp_code:'01160363',name:'에코프로비엠',stock:'247540',sector:'소재'},
+  {corp_code:'00398701',name:'엘앤에프',stock:'066970',sector:'양극재'},
+  {corp_code:'00141529',name:'오뚜기',stock:'007310',sector:'식품'},
+  {corp_code:'00145109',name:'유한양행',stock:'000100',sector:'제약'},
+  {corp_code:'00269922',name:'인바디',stock:'041830',sector:'의료기기'},
+  {corp_code:'00897752',name:'천보',stock:'278280',sector:'전해질'},
+  {corp_code:'00258801',name:'카카오',stock:'035720',sector:'IT'},
+  {corp_code:'00155276',name:'포스코퓨처엠',stock:'003670',sector:'소재'},
+  {corp_code:'00155319',name:'포스코홀딩스',stock:'005490',sector:'철강'},
+  {corp_code:'00684714',name:'풍산',stock:'103140',sector:'비철금속'},
+  {corp_code:'00150244',name:'하이트진로',stock:'000080',sector:'음료'},
+  {corp_code:'00261285',name:'한국가스공사',stock:'036460',sector:'에너지'},
+  {corp_code:'00159193',name:'한국전력',stock:'015760',sector:'전력'},
+  {corp_code:'00937324',name:'한국타이어앤테크놀로지',stock:'161390',sector:'타이어'},
+  {corp_code:'00309503',name:'한국항공우주',stock:'047810',sector:'항공'},
+  {corp_code:'00828497',name:'한미약품',stock:'128940',sector:'제약'},
+  {corp_code:'00161693',name:'한샘',stock:'009240',sector:'가구'},
+  {corp_code:'00126566',name:'한화에어로스페이스',stock:'012450',sector:'방산/항공'},
+  {corp_code:'00164478',name:'현대건설',stock:'000720',sector:'건설'},
+  {corp_code:'00302926',name:'현대로템',stock:'064350',sector:'철도/방산'},
+  {corp_code:'00164788',name:'현대모비스',stock:'012330',sector:'자동차부품'},
+  {corp_code:'00106623',name:'현대위아',stock:'011210',sector:'자동차부품'},
+  {corp_code:'00164742',name:'현대자동차',stock:'005380',sector:'자동차'},
+  {corp_code:'00145880',name:'현대제철',stock:'004020',sector:'철강'},
+  {corp_code:'01316227',name:'효성중공업',stock:'298020',sector:'중전기'},
+];
+
+let dartDebounceTimer = null;
+let dartDropdownIndex = -1;
+let dartDropdownItems = [];
+
+// Autocomplete: triggered on every input
+function dartAutocomplete(value) {
+  clearTimeout(dartDebounceTimer);
+  const dropdown = document.getElementById('dartDropdown');
+  
+  if (!value || value.length < 1) {
+    dropdown.classList.remove('open');
+    dartDropdownItems = [];
+    return;
+  }
+  
+  // Immediate local search
+  const localResults = DART_COMPANIES.filter(c => 
+    c.name.includes(value) || c.stock.includes(value)
+  ).slice(0, 8);
+  
+  if (localResults.length > 0) {
+    showDartDropdown(localResults, value);
+  }
+  
+  // Debounced API search (내장 목록에 결과 없을 때만)
+  if (value.length >= 2 && localResults.length === 0) {
+    dartDebounceTimer = setTimeout(async () => {
+      try {
+        // Show loading indicator if no local results
+        if (localResults.length === 0) {
+          dropdown.innerHTML = '<div class="dart-dropdown-loading">DART에서 검색 중...</div>';
+          dropdown.classList.add('open');
+        }
+        
+        const companies = await dartSearchCompany(value);
+        if (companies.length > 0) {
+          // Merge with local (avoid duplicates)
+          const merged = [...localResults];
+          const existingCodes = new Set(localResults.map(c => c.corp_code));
+          for (const c of companies) {
+            if (!existingCodes.has(c.corp_code)) {
+              merged.push({
+                corp_code: c.corp_code,
+                name: c.corp_name,
+                stock: c.stock_code || '',
+                sector: '',
+                fromAPI: true
+              });
+            }
+          }
+          showDartDropdown(merged.slice(0, 10), value);
+        }
+      } catch (e) {
+        // CORS or network error - just keep showing local results
+        if (localResults.length === 0) {
+          dropdown.innerHTML = '<div class="dart-dropdown-empty">내장 목록에서 결과 없음. 정확한 회사명으로 검색 버튼을 클릭하세요.</div>';
+          dropdown.classList.add('open');
+        }
+      }
+    }, 400);
+  }
+}
+
+// Render dropdown items
+function showDartDropdown(results, query) {
+  const dropdown = document.getElementById('dartDropdown');
+  dartDropdownItems = results;
+  dartDropdownIndex = -1;
+  
+  if (results.length === 0) {
+    dropdown.innerHTML = '<div class="dart-dropdown-empty">검색 결과 없음</div>';
+    dropdown.classList.add('open');
+    return;
+  }
+  
+  let html = '';
+  results.forEach((c, idx) => {
+    // Highlight matching text
+    const highlightedName = c.name.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark style="background:#E1F4FF;padding:0 1px;border-radius:2px;">$1</mark>');
+    html += `<div class="dart-dropdown-item" data-idx="${idx}" onmousedown="dartSelectItem(${idx})" onmouseenter="dartDropdownIndex=${idx};highlightDartItem()">
+      <div>
+        <span class="dart-corp-name">${highlightedName}</span>
+        ${c.sector ? `<span class="dart-corp-info" style="margin-left:6px;">${c.sector}</span>` : ''}
+        ${c.fromAPI ? '<span class="dart-corp-info" style="margin-left:4px;color:var(--blue);">[DART]</span>' : ''}
+      </div>
+      <span class="dart-corp-code">${c.stock || c.corp_code}</span>
+    </div>`;
+  });
+  
+  dropdown.innerHTML = html;
+  dropdown.classList.add('open');
+}
+
+// Select item from dropdown
+function dartSelectItem(idx) {
+  const item = dartDropdownItems[idx];
+  if (!item) return;
+  
+  const input = document.getElementById('dart_search');
+  input.value = item.name;
+  
+  const dropdown = document.getElementById('dartDropdown');
+  dropdown.classList.remove('open');
+  dartDropdownItems = [];
+  
+  // Auto-trigger financial data loading
+  window._dartSelectedCorpCode = item.corp_code;
+  window._dartSelectedCorpName = item.name;
+  loadDartFinancials(item.corp_code, item.name);
+}
+
+// Keyboard navigation in dropdown
+function dartInputKeydown(event) {
+  const dropdown = document.getElementById('dartDropdown');
+  const isOpen = dropdown.classList.contains('open');
+  
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    if (isOpen && dartDropdownItems.length > 0) {
+      dartDropdownIndex = Math.min(dartDropdownIndex + 1, dartDropdownItems.length - 1);
+      highlightDartItem();
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (isOpen) {
+      dartDropdownIndex = Math.max(dartDropdownIndex - 1, 0);
+      highlightDartItem();
+    }
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    if (isOpen && dartDropdownIndex >= 0) {
+      dartSelectItem(dartDropdownIndex);
+    } else {
+      searchDART();
+    }
+  } else if (event.key === 'Escape') {
+    dropdown.classList.remove('open');
+  }
+}
+
+// Highlight current item in dropdown
+function highlightDartItem() {
+  const dropdown = document.getElementById('dartDropdown');
+  const items = dropdown.querySelectorAll('.dart-dropdown-item');
+  items.forEach((el, i) => {
+    el.classList.toggle('active', i === dartDropdownIndex);
+    if (i === dartDropdownIndex) el.scrollIntoView({block:'nearest'});
+  });
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#dart_search') && !e.target.closest('#dartDropdown')) {
+    document.getElementById('dartDropdown')?.classList.remove('open');
+  }
+});
+
+// ============================================================
+// DART API FETCH FUNCTIONS
+// ============================================================
+async function dartFetch(endpoint, params) {
+  const queryParams = new URLSearchParams({ crtfc_key: DART_API_KEY, ...params });
+  const targetUrl = `${DART_BASE}/${endpoint}?${queryParams.toString()}`;
+
+  // 1. Cloudflare Worker (최우선 — CORS 해결됨, 빠름)
+  if (DART_PROXY_CF) {
+    const cfUrl = `${DART_PROXY_CF}${endpoint}?${queryParams.toString()}`;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000); // 8초 timeout
+      const resp = await fetch(cfUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.status) return data;
+      }
+    } catch (e) {
+      console.warn('CF Worker 실패, fallback 시도:', e.message);
+    }
+  }
+
+  // 2. corsproxy.io (fallback)
+  if (DART_PROXY_PUBLIC) {
+    try {
+      const resp = await fetch(`${DART_PROXY_PUBLIC}${encodeURIComponent(targetUrl)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.status) return data;
+      }
+    } catch (e) {
+      console.warn('corsproxy 실패:', e.message);
+    }
+  }
+
+  // 3. allorigins (최후 fallback)
+  if (DART_PROXY_FALLBACK) {
+    try {
+      const resp = await fetch(`${DART_PROXY_FALLBACK}${encodeURIComponent(targetUrl)}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.status) return data;
+      }
+    } catch (e) {
+      console.warn('allorigins 실패:', e.message);
+    }
+  }
+
+  throw new Error('모든 프록시 시도 실패');
+}
+
+// Step 1: Search company — 내장 목록 우선, 없으면 corp_code 직접 조회
+async function dartSearchCompany(corpName) {
+  // 1) 내장 목록에서 먼저 검색 (빠르고 정확)
+  const localMatches = DART_COMPANIES.filter(c =>
+    c.name.includes(corpName) || c.stock.includes(corpName)
+  );
+  if (localMatches.length > 0) {
+    return localMatches.map(c => ({
+      corp_code: c.corp_code,
+      corp_name: c.name,
+      stock_code: c.stock,
+      sector: c.sector
+    }));
+  }
+
+  // 2) 내장 목록에 없으면 DART API 직접 검색
+  // Worker가 corp_name 한글 파라미터를 제대로 전달하지 않으므로
+  // 검색 전용으로는 DART URL을 직접 corsproxy로 호출
+  const dartSearchUrl = `https://opendart.fss.or.kr/api/list.json?crtfc_key=${DART_API_KEY}&corp_name=${encodeURIComponent(corpName)}&page_count=10&last_reprt_at=Y&pblntf_ty=A`;
+
+  let data = null;
+  const searchProxies = [
+    `${DART_PROXY_PUBLIC}${encodeURIComponent(dartSearchUrl)}`,
+    `${DART_PROXY_FALLBACK}${encodeURIComponent(dartSearchUrl)}`,
+  ];
+  for (const url of searchProxies) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+      clearTimeout(timer);
+      if (resp.ok) { data = await resp.json(); if (data && data.status) break; }
+    } catch(e) { continue; }
+  }
+
+  if (!data || data.status === '013') throw new Error('NO_RESULT');
+  if (data.status !== '000') throw new Error(data.message || 'DART API 오류');
+
+  // 회사명이 일치하는 것만 추출 (중복 corp_code 제거)
+  const seen = new Set();
+  const companies = [];
+  for (const item of (data.list || [])) {
+    if (!seen.has(item.corp_code) && item.corp_name.includes(corpName)) {
+      seen.add(item.corp_code);
+      companies.push({
+        corp_code: item.corp_code,
+        corp_name: item.corp_name,
+        stock_code: item.stock_code || '',
+        report: item.report_nm,
+        date: item.rcept_dt
+      });
+    }
+  }
+  if (companies.length === 0) throw new Error('NO_RESULT');
+  return companies;
+}
+
+// Step 2: Get company overview (includes industry, stock code)
+async function dartGetCompanyInfo(corpCode) {
+  const data = await dartFetch('company.json', { corp_code: corpCode });
+  if (data.status !== '000') throw new Error(data.message || 'DART 기업개황 조회 실패');
+  return data;
+}
+
+// Step 3: Get key financial accounts (condensed)
+async function dartGetFinancials(corpCode, year, reprtCode) {
+  const data = await dartFetch('fnlttSinglAcnt.json', {
+    corp_code: corpCode,
+    bsns_year: year,
+    reprt_code: reprtCode, // 11011=사업보고서(연간)
+    fs_div: 'CFS' // 연결재무제표
+  });
+  
+  // If consolidated fails, try individual (OFS)
+  if (data.status === '013') {
+    const ofsData = await dartFetch('fnlttSinglAcnt.json', {
+      corp_code: corpCode,
+      bsns_year: year,
+      reprt_code: reprtCode,
+      fs_div: 'OFS'
+    });
+    if (ofsData.status !== '000') throw new Error('재무데이터 없음');
+    return { list: ofsData.list, fs_div: 'OFS' };
+  }
+  
+  if (data.status !== '000') throw new Error(data.message || '재무제표 조회 실패');
+  return { list: data.list, fs_div: 'CFS' };
+}
+
+// Step 4: Get full financial statement (for COGS, inventory, labor etc.)
+async function dartGetFullFinancials(corpCode, year, reprtCode, fsDiv) {
+  const data = await dartFetch('fnlttSinglAcntAll.json', {
+    corp_code: corpCode,
+    bsns_year: year,
+    reprt_code: reprtCode,
+    fs_div: fsDiv
+  });
+  if (data.status !== '000') return [];
+  return data.list || [];
+}
+
+// Step 5: Get employee count
+async function dartGetEmployees(corpCode) {
+  try {
+    const data = await dartFetch('empSttus.json', { corp_code: corpCode, bsns_year: new Date().getFullYear() - 1 });
+    if (data.status !== '000' || !data.list) return null;
+    // Sum up total employees — 필드명: sm (합계), rgllbr_co (정규직)
+    let total = 0;
+    for (const item of data.list) {
+      // fo_bbm이 없고 sexdstn이 '합계'인 row가 전체 합계
+      if (item.fo_bbm === '합계' || item.sexdstn === '합계') {
+        const count = parseInt((item.sm || item.jan_sttus_nmpr_co || '0').replace(/,/g, ''));
+        if (count > total) total = count;
+      }
+    }
+    // fo_bbm='성별합계' row도 체크
+    if (total === 0) {
+      for (const item of data.list) {
+        if (item.fo_bbm === '성별합계' && item.sexdstn === '남') {
+          // 남+여 합산
+          const m = parseInt((item.sm || '0').replace(/,/g, '')) || 0;
+          const fRow = data.list.find(r => r.fo_bbm === '성별합계' && r.sexdstn === '여');
+          const f = fRow ? (parseInt((fRow.sm || '0').replace(/,/g, '')) || 0) : 0;
+          total = m + f;
+          break;
+        }
+      }
+    }
+    return total > 0 ? total : null;
+  } catch { return null; }
+}
+
+// Parse financial amount (remove commas, handle negative)
+function parseDartAmount(amountStr) {
+  if (!amountStr) return null;
+  const cleaned = amountStr.replace(/,/g, '').replace(/\s/g, '');
+  const num = parseInt(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+// Main orchestrator: search → fetch → populate
+async function searchDART() {
+  const query = document.getElementById('dart_search').value.trim();
+  const status = document.getElementById('dartStatus');
+  
+  if (!query) {
+    showDartStatus('warning', '회사명 또는 종목코드를 입력해 주세요.');
+    return;
+  }
+  
+  showDartStatus('loading', `<strong>${query}</strong> 검색 중...`);
+  
+  try {
+    // 1. Search company
+    const companies = await dartSearchCompany(query);
+    
+    if (companies.length === 0) {
+      showDartStatus('warning', `"${query}" 검색 결과가 없습니다. 정확한 회사명을 입력해 주세요.`);
+      return;
+    }
+    
+    // If multiple results, use first match (or show selection)
+    let selected = companies[0];
+    if (companies.length > 1) {
+      // Show selection UI
+      showDartCompanySelect(companies);
+      return;
+    }
+    
+    await loadDartFinancials(selected.corp_code, selected.corp_name);
+    
+  } catch (e) {
+    console.error('searchDART error:', e);
+    if (e.message === 'NO_RESULT') {
+      showDartStatus('warning', `"${query}" 검색 결과가 없습니다. 정확한 법인명(예: 삼성전자)을 입력해 주세요.`);
+    } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      showDartStatus('error',
+        `<strong>네트워크 오류</strong> — 잠시 후 다시 시도해 주세요.<br>` +
+        `<span style="font-size:10px;">또는 아래 필드에 직접 입력해 주세요.</span>`);
+    } else {
+      showDartStatus('error', `오류: ${e.message}`);
+    }
+  }
+}
+
+// Load financials for selected company
+async function loadDartFinancials(corpCode, corpName) {
+  showDartStatus('loading', `<strong>${corpName}</strong> 재무데이터 조회 중...`);
+  
+  try {
+    // Determine most recent year/report
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear - 1, currentYear - 2]; // Try last year first, then year before
+    const reprtCodes = ['11011', '11012']; // 사업보고서(연간) → 반기보고서
+    
+    let financialData = null;
+    let usedYear = null;
+    let usedReprt = null;
+    
+    for (const year of years) {
+      for (const reprt of reprtCodes) {
+        try {
+          financialData = await dartGetFinancials(corpCode, year.toString(), reprt);
+          usedYear = year;
+          usedReprt = reprt;
+          break;
+        } catch { continue; }
+      }
+      if (financialData) break;
+    }
+    
+    if (!financialData || !financialData.list || financialData.list.length === 0) {
+      showDartStatus('warning', `${corpName}의 최근 재무제표를 찾을 수 없습니다. 수동으로 입력해 주세요.`);
+      return;
+    }
+    
+    // Parse key accounts from summary financials (fnlttSinglAcnt)
+    const result = { period: `${usedYear}.12 ${usedReprt === '11011' ? '사업보고서' : '반기보고서'}` };
+    const fsDiv = financialData.fs_div;
+
+    for (const item of financialData.list) {
+      const name = item.account_nm || '';
+      const sjDiv = item.sj_div || '';
+      const amount = parseDartAmount(item.thstrm_amount);
+      if (amount === null) continue;
+      const eok = Math.round(amount / 100000000);
+
+      if (sjDiv === 'IS' || !sjDiv) {
+        if (name.includes('매출액') || name.includes('수익(매출액)')) {
+          if (!result.revenue || eok > result.revenue) result.revenue = eok;
+        }
+        if (name === '매출원가' || name.includes('매출원가')) {
+          if (!result.cogs) result.cogs = eok;
+        }
+        if (name.includes('영업이익') && !name.includes('법인세')) {
+          if (!result.op_profit) result.op_profit = eok;
+        }
+        if (name.includes('당기순이익') && !name.includes('지배')) {
+          if (!result.netIncome) result.netIncome = eok;
+        }
+      }
+      if ((sjDiv === 'BS' || !sjDiv) && name === '재고자산') {
+        if (!result.inventory) result.inventory = eok;
+      }
+    }
+
+    // Get full financials for additional detail (fnlttSinglAcntAll)
+    try {
+      const fullList = await dartGetFullFinancials(corpCode, usedYear.toString(), usedReprt, fsDiv);
+      for (const item of fullList) {
+        const name = item.account_nm || '';
+        const sjDiv = item.sj_div || '';
+        const amount = parseDartAmount(item.thstrm_amount);
+        if (amount === null) continue;
+        const eok = Math.round(amount / 100000000);
+
+        // 매출원가 (IS에서)
+        if (sjDiv === 'IS' && name === '매출원가' && !result.cogs) result.cogs = eok;
+
+        // 재고자산 (BS에서)
+        if (sjDiv === 'BS' && name === '재고자산' && !result.inventory) result.inventory = eok;
+
+        // 제조원가 (제조원가명세서 MS 또는 원가명세서)
+        if ((sjDiv === 'MS' || name.includes('당기제품제조원가') || name.includes('제조원가')) && !result.mfg_cost) {
+          result.mfg_cost = eok;
+        }
+
+        // R&D — 판관비 세부 또는 연구개발비 계정
+        if (!result.rnd && (
+          name === '연구개발비' || name === '경상연구개발비' ||
+          name.includes('연구개발비용') || name.includes('R&D')
+        )) result.rnd = eok;
+
+        // 유형자산(감가상각 proxy)
+        if (sjDiv === 'BS' && name === '유형자산' && !result.capex) result.capex = eok;
+      }
+    } catch { /* optional */ }
+
+    // 종업원수 + 인건비(급여총액) — empSttus API
+    try {
+      const empData = await dartFetch('empSttus.json', {
+        corp_code: corpCode,
+        bsns_year: usedYear.toString(),
+        reprt_code: usedReprt
+      });
+      if (empData.status === '000' && empData.list) {
+        let totalEmp = 0, totalSalary = 0;
+        for (const item of empData.list) {
+          // 성별합계 행에서 합산 (fo_bbm별 남+여)
+          if (item.fo_bbm === '성별합계') {
+            const emp = parseInt((item.sm || '0').replace(/,/g,'')) || 0;
+            const sal = parseInt((item.fyer_salary_totamt || '0').replace(/,/g,'')) || 0;
+            totalEmp += emp;
+            totalSalary += sal;
+          }
+        }
+        // fo_bbm이 없고 전체 합계인 경우 fallback
+        if (totalEmp === 0) {
+          for (const item of empData.list) {
+            if (item.fo_bbm === '합계' || item.sexdstn === '합계') {
+              totalEmp = Math.max(totalEmp, parseInt((item.sm || '0').replace(/,/g,'')) || 0);
+            }
+          }
+        }
+        if (totalEmp > 0) result.headcount = totalEmp;
+        if (totalSalary > 0) result.labor = Math.round(totalSalary / 100000000); // 원 → 억원
+      }
+    } catch { /* optional */ }
+    
+    // Populate fields
+    populateFromDART(result);
+    
+  } catch (e) {
+    showDartStatus('error', `재무데이터 조회 실패: ${e.message}`);
+  }
+}
+
+// Show company selection when multiple results
+function showDartCompanySelect(companies) {
+  const status = document.getElementById('dartStatus');
+  let html = `<div style="margin-bottom:6px;font-weight:600;">여러 기업이 검색되었습니다. 선택해 주세요:</div>`;
+  html += `<div style="display:flex;flex-direction:column;gap:4px;">`;
+  companies.forEach(c => {
+    html += `<div style="padding:6px 10px;background:white;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;display:flex;justify-content:space-between;" 
+      onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'"
+      onclick="loadDartFinancials('${c.corp_code}','${c.corp_name.replace(/'/g, "\\'")}')">
+      <span><strong>${c.corp_name}</strong>${c.stock_code ? ' ('+c.stock_code+')' : ''}</span>
+      <span style="color:var(--text-light);">${c.date || ''}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  status.style.display = 'block';
+  status.style.background = 'var(--light-blue)';
+  status.style.color = 'var(--navy)';
+  status.innerHTML = html;
+}
+
+// Status display helper
+function showDartStatus(type, message) {
+  const status = document.getElementById('dartStatus');
+  status.style.display = 'block';
+  const styles = {
+    loading: { bg: 'var(--light-blue)', color: 'var(--blue)' },
+    success: { bg: '#E8F5E9', color: 'var(--green)' },
+    warning: { bg: '#FFF8E1', color: 'var(--orange)' },
+    error: { bg: '#FBE9E7', color: 'var(--red)' }
+  };
+  const s = styles[type] || styles.loading;
+  status.style.background = s.bg;
+  status.style.color = s.color;
+  status.innerHTML = message;
+}
+
+// Helper: Populate financial fields from DART response
+function populateFromDART(data) {
+  // data = {revenue, cogs, op_profit, mfg_cost, labor, inventory, capex, rnd, headcount, period}
+  const fields = {
+    fin_revenue: data.revenue,
+    fin_cogs: data.cogs,
+    fin_op_profit: data.op_profit,
+    fin_mfg_cost: data.mfg_cost,
+    fin_labor: data.labor,
+    fin_inventory: data.inventory,
+    fin_capex: data.capex,
+    fin_rnd: data.rnd,
+    fin_headcount: data.headcount
+  };
+  
+  let filledCount = 0;
+  Object.entries(fields).forEach(([id, val]) => {
+    if (val != null && val !== 0) {
+      const el = document.getElementById(id);
+      if (el) { 
+        el.value = val; 
+        el.style.borderColor = 'var(--green)';
+        el.style.background = '#f0fdf4';
+        filledCount++;
+      }
+    }
+  });
+  
+  // Also update revenue range selector if revenue is provided
+  if (data.revenue) {
+    const revSelect = document.getElementById('inp_revenue');
+    if (revSelect) {
+      if (data.revenue <= 500) revSelect.value = '500';
+      else if (data.revenue <= 2000) revSelect.value = '1500';
+      else if (data.revenue <= 7000) revSelect.value = '4000';
+      else if (data.revenue <= 20000) revSelect.value = '10000';
+      else revSelect.value = '30000';
+    }
+  }
+  
+  // Build summary of loaded items
+  const loaded = [];
+  if (data.revenue) loaded.push(`매출 ${data.revenue.toLocaleString()}억`);
+  if (data.cogs) loaded.push(`원가 ${data.cogs.toLocaleString()}억`);
+  if (data.op_profit) loaded.push(`영업이익 ${data.op_profit.toLocaleString()}억`);
+  if (data.inventory) loaded.push(`재고 ${data.inventory.toLocaleString()}억`);
+  if (data.headcount) loaded.push(`종업원 ${data.headcount.toLocaleString()}명`);
+  
+  showDartStatus('success',
+    `<strong>DART 데이터 로드 완료</strong> · ${filledCount}개 항목 자동 입력<br>` +
+    `<span style="font-size:10px;">${loaded.join(' · ')}</span><br>` +
+    `<span style="font-size:10px;opacity:0.7;">출처: DART 전자공시 (${data.period || '최근 사업보고서'}) · 연결재무제표 기준</span>`);
+  
+  // Store DART source flag for confidence calculation
+  window._dartLoaded = true;
+}
+
+// ============================================================
+// DYNAMIC KPI RANGES - Based on VLM Benchmark per Industry
+// Generates range options using actual Top25/Avg/Bot25 data
+// ============================================================
+function renderKPIRanges() {
+  const industry = document.getElementById('inp_industry').value;
+  const container = document.getElementById('kpiRangeContainer');
+  const noteEl = document.getElementById('kpiBenchmarkNote');
+  
+  if (!industry) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text-light);grid-column:1/-1;text-align:center;padding:20px;">산업을 선택하면 해당 산업의 VLM 벤치마크 기준으로 KPI 범위가 표시됩니다.</div>';
+    noteEl.style.display = 'none';
+    return;
+  }
+  
+  const benchInfo = getBenchmarks(industry);
+  const bench = benchInfo.data;
+  
+  // Show benchmark source note
+  noteEl.style.display = 'block';
+  if (benchInfo.validated) {
+    noteEl.innerHTML = `<strong>적용 기준:</strong> SAP VLM(Value Lifecycle Manager) ${industry} 산업 벤치마크 데이터 기반. 아래 범위의 "상위/평균/하위"는 글로벌 동종업계 상위25%/평균/하위25% 실적입니다.`;
+  } else {
+    noteEl.innerHTML = `<strong>적용 기준:</strong> 선택 산업에 대한 전용 VLM Benchmark가 없어 Automotive 산업 기준을 참고치로 적용합니다. 실제 산업 특성과 차이가 있을 수 있습니다.`;
+  }
+  
+  // KPI definitions for dynamic range generation
+  // higherIsBetter: true = top25 is best (e.g. OEE), false = top25 is lowest/best (e.g. downtime)
+  const kpiDefs = [
+    {id:'kpi_oee', key:'oee', label:'OEE (%)', tip:'전체 설비 효율성 (가동률×성능×품질)', unit:'%', higherIsBetter:true},
+    {id:'kpi_downtime', key:'downtime', label:'비계획 다운타임 (%)', tip:'계획 가동시간 대비 비계획 정지 비율', unit:'%', higherIsBetter:false},
+    {id:'kpi_scrap', key:'scrap', label:'불량/스크랩률 (%)', tip:'제조 원가 대비 불량/폐기 비율', unit:'%', higherIsBetter:false},
+    {id:'kpi_inventory', key:'inventory', label:'재고 일수 (일)', tip:'원재료+재공+완제품 평균 재고 보유 일수', unit:'일', higherIsBetter:false},
+    {id:'kpi_otd', key:'otd', label:'납기 준수율 (%)', tip:'약속된 납기 대비 정시 출하 비율', unit:'%', higherIsBetter:true},
+    {id:'kpi_cycletime', key:'cycletime', label:'제조 사이클타임 (일)', tip:'원자재 투입~완제품 출하까지 소요 일수', unit:'일', higherIsBetter:false}
+  ];
+  
+  let html = '';
+  kpiDefs.forEach(def => {
+    const b = bench[def.key];
+    if (!b) {
+      // No benchmark data for this KPI in this industry - show simple input
+      html += `<div class="form-group"><label class="form-label">${def.label} <span class="tooltip-icon" data-tip="${def.tip}">?</span></label>
+        <select class="form-select kpi-opt" id="${def.id}"><option value="">모름 / 미입력</option></select></div>`;
+      return;
+    }
+    
+    // Generate 5 ranges based on VLM Top25 / Avg / Bot25
+    const ranges = generateRanges(b.top25, b.avg, b.bot25, def.higherIsBetter, def.unit);
+    
+    html += `<div class="form-group"><label class="form-label">${def.label} <span class="tooltip-icon" data-tip="${def.tip}">?</span></label>
+      <select class="form-select kpi-opt" id="${def.id}">
+        <option value="">모름 / 미입력</option>
+        ${ranges.map(r => `<option value="${r.value}">${r.label}</option>`).join('')}
+      </select>
+      <div style="font-size:9px;color:var(--text-light);margin-top:2px;">업계 상위25%: ${b.top25}${def.unit} · 평균: ${b.avg}${def.unit} · 하위25%: ${b.bot25}${def.unit}</div>
+    </div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Generate 5 range options from VLM benchmark data
+// Returns [{value: midpoint, label: "range text"}, ...]
+function generateRanges(top25, avg, bot25, higherIsBetter, unit) {
+  const ranges = [];
+  
+  if (higherIsBetter) {
+    // Higher is better (OEE, OTD, Forecast): top25 is best
+    // Ranges: well below avg, below avg, around avg, above avg (near top25), top level
+    const step1 = Math.round(bot25 - (avg - bot25) * 0.5); // well below
+    const r1End = Math.round(bot25);
+    const r2End = Math.round(avg);
+    const r3End = Math.round(top25);
+    const r4End = Math.round(top25 + (top25 - avg) * 0.3);
+    
+    ranges.push({value: Math.round((step1 + r1End) / 2), label: `~${r1End}${unit} (하위)`});
+    ranges.push({value: Math.round((r1End + r2End) / 2), label: `${r1End}~${r2End}${unit} (평균 이하)`});
+    ranges.push({value: Math.round((r2End + r3End) / 2), label: `${r2End}~${r3End}${unit} (평균~상위)`});
+    ranges.push({value: Math.round((r3End + r4End) / 2), label: `${r3End}~${r4End}${unit} (상위)`});
+    ranges.push({value: r4End + 2, label: `${r4End}${unit}+ (최상위)`});
+  } else {
+    // Lower is better (downtime, scrap, inventory, cycletime): top25 is lowest/best
+    // Ranges: best level, good, average, poor, very poor
+    const step1 = Math.round(top25 * 0.7 * 10) / 10; // well below top25
+    const r1End = roundSmart(top25);
+    const r2End = roundSmart(avg);
+    const r3End = roundSmart(bot25);
+    const r4End = roundSmart(bot25 + (bot25 - avg) * 0.5);
+    
+    ranges.push({value: roundSmart((step1 + top25) / 2), label: `~${r1End}${unit} (상위)`});
+    ranges.push({value: roundSmart((top25 + avg) / 2), label: `${r1End}~${r2End}${unit} (평균~상위)`});
+    ranges.push({value: roundSmart((avg + bot25) / 2), label: `${r2End}~${r3End}${unit} (평균~하위)`});
+    ranges.push({value: roundSmart((bot25 + r4End) / 2), label: `${r3End}~${r4End}${unit} (하위)`});
+    ranges.push({value: roundSmart(r4End * 1.2), label: `${r4End}${unit}+ (심각)`});
+  }
+  
+  return ranges;
+}
+
+// Smart rounding: 1 decimal for small numbers, integer for large
+function roundSmart(n) {
+  if (n >= 10) return Math.round(n);
+  if (n >= 1) return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goStep(step) {
+  const isTest = document.getElementById('resp_name')?.value?.toLowerCase() === 'test';
+
+  // Step 0 → 1: 필수 항목 검증
+  if (!isTest && step > 0 && currentStep === 0) {
+    const required = ['inp_company','inp_industry','inp_size','inp_plants','inp_priority'];
+    const missing = required.filter(id => !document.getElementById(id).value);
+    if (missing.length > 0) {
+      showToast('필수 항목(*)을 모두 입력해 주세요.', 'warning');
+      const el = document.getElementById(missing[0]);
+      if (el) { el.classList.add('err'); el.focus(); el.addEventListener('change', () => el.classList.remove('err'), {once:true}); }
+      return;
+    }
+  }
+
+  // Step 1 → 2: 성숙도 문항 전체 응답 검증
+  if (!isTest && step > 1 && currentStep === 1) {
+    const visibleQs = MATURITY_QS.filter(q => q.core || focusDomains.has(q.domain));
+    const unanswered = visibleQs.filter(q => !maturityAnswers[q.id]);
+    if (unanswered.length > 0) {
+      showToast(`아직 응답하지 않은 문항이 ${unanswered.length}개 있습니다. 모든 문항에 답해 주세요.`, 'warning', 5000);
+      // 첫 번째 미응답 문항으로 스크롤
+      const firstEl = document.getElementById(`ditem_${unanswered[0].id}`);
+      if (firstEl) {
+        firstEl.scrollIntoView({behavior:'smooth', block:'center'});
+        firstEl.style.outline = '2px solid var(--orange)';
+        setTimeout(() => firstEl.style.outline = '', 3000);
+      }
+      return;
+    }
+  }
+
+  // Step 2 → Step 3(KPI): 핵심 과제 최소 1개 선택 + 평가 검증
+  if (!isTest && step > 2 && currentStep === 2) {
+    if (selectedPPs.size === 0) {
+      showToast('핵심 비즈니스 과제를 1개 이상 선택해 주세요.', 'warning');
+      return;
+    }
+    const unrated = [...selectedPPs].filter(ppId => {
+      const r = ppRatings[ppId];
+      return !r || !r.impact || !r.urgency;
+    });
+    if (unrated.length > 0) {
+      const pp = PAIN_POINTS.find(p => p.id === unrated[0]);
+      showToast(`"${pp?.text}" 항목의 영향도·긴급도를 평가해 주세요.`, 'warning', 5000);
+      const el = document.querySelector(`#ppRatingContainer .pp-rate`);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+  }
+  currentStep = step;
+  document.querySelectorAll('.section').forEach((s,i) => s.classList.toggle('active', i===step));
+  document.querySelectorAll('.p-step').forEach((s,i) => {
+    s.classList.remove('active','done');
+    if (i===step) s.classList.add('active');
+    else if (i<step) s.classList.add('done');
+  });
+  updateProgressInfo();
+  // Step 3 진입 시 KPI 범위 렌더링
+  if (step === 3) renderKPIRanges();
+  window.scrollTo(0,0);
+}
+
+function updateProgressInfo() {
+  const info = document.getElementById('progressInfo');
+  const totalSteps = 5;
+  const msgs = [
+    `${totalSteps}단계 중 1단계 · 기업 정보 입력`,
+    `${totalSteps}단계 중 2단계 · 성숙도 질문 ${getVisibleQCount()}개`,
+    `${totalSteps}단계 중 3단계 · 과제 ${selectedPPs.size}/5개 선택`,
+    `${totalSteps}단계 중 4단계 · KPI 입력 (선택)`,
+    `${totalSteps}단계 중 5단계 · 결과 확인`
+  ];
+  info.textContent = msgs[currentStep];
+}
+
+function getVisibleQCount() {
+  return MATURITY_QS.filter(q => q.core || focusDomains.has(q.domain)).length;
+}
+
+// ============================================================
+// STEP 2: MATURITY RENDERING
+// ============================================================
+function renderMaturity() {
+  // Determine focus domains from business priority
+  updateFocusDomains();
+  const container = document.getElementById('maturityContainer');
+  
+  // Domain icons/colors for visual differentiation
+  const domainStyle = {
+    Foundation: {icon:"🔗", color:"#0070F2", bg:"#E1F4FF"},
+    Product: {icon:"📐", color:"#6C3FBF", bg:"#F3EDFF"},
+    Manufacturing: {icon:"🏭", color:"#188918", bg:"#E8F5E9"},
+    Asset: {icon:"⚙️", color:"#E76500", bg:"#FFF3E0"},
+    Sustainability: {icon:"🌱", color:"#0D7D3A", bg:"#E0F2E9"}
+  };
+  
+  let html = '';
+  let qIndex = 0;
+  const totalVisible = MATURITY_QS.filter(q => q.core || focusDomains.has(q.domain)).length;
+  
+  DOMAINS.forEach(d => {
+    const qs = MATURITY_QS.filter(q => q.domain === d && (q.core || focusDomains.has(d)));
+    if (qs.length === 0) return;
+    const style = domainStyle[d];
+    html += `<div style="margin-bottom:20px;border:1px solid ${style.color}22;border-radius:var(--radius);overflow:hidden;">
+      <div style="background:${style.bg};padding:10px 14px;border-bottom:1px solid ${style.color}22;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">${style.icon}</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${style.color};">${DOMAIN_LABELS[d]}</div>
+          <div style="font-size:10px;color:var(--text-light);">${qs.length}개 문항 · 현재 영역의 디지털/AI 성숙도를 평가합니다</div>
+        </div>
+        <div style="margin-left:auto;font-size:10px;color:${style.color};background:white;padding:2px 8px;border-radius:10px;border:1px solid ${style.color}33;">
+          ${qs.filter(q=>maturityAnswers[q.id]).length}/${qs.length} 완료
+        </div>
+      </div>
+      <div style="padding:12px;">`;
+    qs.forEach(q => {
+      qIndex++;
+      const answered = maturityAnswers[q.id] ? 'answered' : '';
+      const answeredStyle = maturityAnswers[q.id] ? `border-left:3px solid ${style.color};` : '';
+      html += `<div class="q-card ${answered}" data-domain="${d}" style="${answeredStyle}">
+        <div class="q-num" style="display:flex;justify-content:space-between;">
+          <span>${q.id} · ${q.core?'필수':'심화'}</span>
+          <span style="font-size:9px;color:var(--text-light);font-weight:400;">가치동인: ${q.vd}</span>
+        </div>
+        <div class="q-text">${q.q}</div>
+        <div class="scale-opts">`;
+      q.a.forEach((anchor,i) => {
+        const v = i+1;
+        const checked = maturityAnswers[q.id]===v ? 'checked' : '';
+        html += `<div class="scale-opt"><input type="radio" name="mq_${q.id}" id="mq_${q.id}_${v}" value="${v}" ${checked} onchange="setMaturity('${q.id}',${v})"><label for="mq_${q.id}_${v}"><span class="scale-num">${v}</span>${anchor}</label></div>`;
+      });
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+}
+
+function updateFocusDomains() {
+  focusDomains.clear();
+  const priority = document.getElementById('inp_priority')?.value || '';
+  // Map business priority to focus domains for bonus questions
+  const map = {
+    'cost': ['Manufacturing','Asset'],
+    'quality': ['Manufacturing','Product'],
+    'agility': ['Manufacturing','Foundation'],
+    'growth': ['Product','Foundation'],
+    'sustainability': ['Sustainability','Asset'],
+    'digital': ['Foundation','Manufacturing']
+  };
+  (map[priority] || []).forEach(d => focusDomains.add(d));
+}
+
+function setMaturity(qId, value) {
+  maturityAnswers[qId] = value;
+  const card = document.querySelector(`[name="mq_${qId}"]`)?.closest('.q-card');
+  if (card) {
+    card.classList.add('answered');
+    const domain = card.getAttribute('data-domain');
+    const domainColors = {Foundation:"#0070F2",Product:"#7B2FF7",Manufacturing:"#188918",Asset:"#E76500",Sustainability:"#0A6E5C"};
+    if (domain && domainColors[domain]) card.style.borderLeft = `3px solid ${domainColors[domain]}`;
+
+    // 낮은 점수(1~2)에 맥락 피드백 표시
+    const q = MATURITY_QS.find(q => q.id === qId);
+    let hint = card.querySelector('.maturity-hint');
+    if (!hint) { hint = document.createElement('div'); hint.className='maturity-hint'; hint.style.cssText='font-size:10px;margin-top:6px;padding:5px 8px;border-radius:4px;'; card.appendChild(hint); }
+    if (value <= 2) {
+      hint.style.background='#FFF8E1'; hint.style.color='#856404';
+      hint.textContent = `💡 현재 초기 수준입니다. ${q?.vd || '관련 영역'}에서 즉시 개선 기회가 있습니다.`;
+    } else if (value === 3) {
+      hint.style.background='#EBF4FF'; hint.style.color='#004085';
+      hint.textContent = `📈 업계 평균 수준입니다. 고도화를 통해 경쟁 우위 확보가 가능합니다.`;
+    } else {
+      hint.style.background='#E8F5E9'; hint.style.color='#155724';
+      hint.textContent = `✅ 우수한 수준입니다. 지속적인 AI 최적화로 선도 기업 위치를 유지하세요.`;
+    }
+  }
+  updateProgressInfo();
+}
+
+// ============================================================
+// STEP 3: PAIN POINTS
+// ============================================================
+function renderPainPoints() {
+  const grid = document.getElementById('ppGrid');
+
+  // 성숙도 낮은 도메인 파악 (점수 2.5 이하)
+  const weakDomains = new Set();
+  DOMAINS.forEach(d => {
+    const qs = MATURITY_QS.filter(q => q.domain === d && (q.core || focusDomains.has(d)));
+    if (qs.length === 0) return;
+    const answered = qs.filter(q => maturityAnswers[q.id]);
+    if (answered.length === 0) return;
+    const avg = answered.reduce((s,q) => s + maturityAnswers[q.id], 0) / answered.length;
+    if (avg <= 2.5) weakDomains.add(d);
+  });
+
+  // 추천 안내 배너
+  const banner = weakDomains.size > 0
+    ? `<div style="font-size:11px;background:#EBF4FF;border:1px solid var(--sky);border-radius:6px;padding:8px 12px;margin-bottom:12px;">
+        💡 <strong>추천:</strong> 성숙도 진단 결과, <strong>${[...weakDomains].map(d=>DOMAIN_LABELS[d]?.split('(')[0]?.trim()).join(', ')}</strong> 영역이 낮습니다. 관련 과제를 우선 선택하세요.
+       </div>`
+    : '';
+
+  grid.innerHTML = banner + PAIN_POINTS.map(pp => {
+    const isRecommended = weakDomains.has(pp.domain);
+    return `<div class="pp-chip ${selectedPPs.has(pp.id)?'selected':''} ${isRecommended?'pp-recommended':''}"
+      id="chip_${pp.id}" onclick="togglePP('${pp.id}')">
+      ${isRecommended ? '<span style="font-size:9px;background:#0070F2;color:white;padding:1px 5px;border-radius:8px;margin-right:4px;">추천</span>' : ''}
+      ${pp.text}
+      <div class="pp-domain">${DOMAIN_LABELS[pp.domain]?.split('(')[0]?.trim() || pp.domain}</div>
+    </div>`;
+  }).join('');
+}
+
+function togglePP(ppId) {
+  if (selectedPPs.has(ppId)) {
+    selectedPPs.delete(ppId);
+    delete ppRatings[ppId];
+  } else if (selectedPPs.size < 5) {
+    selectedPPs.add(ppId);
+    ppRatings[ppId] = {impact:3, urgency:3};
+  }
+  document.getElementById(`chip_${ppId}`).classList.toggle('selected', selectedPPs.has(ppId));
+  document.getElementById('ppCounter').textContent = `선택: ${selectedPPs.size} / 5`;
+  renderPPRatings();
+  updateProgressInfo();
+}
+
+function renderPPRatings() {
+  const card = document.getElementById('ppRatingCard');
+  const container = document.getElementById('ppRatingContainer');
+  if (selectedPPs.size === 0) { card.style.display='none'; return; }
+  card.style.display = 'block';
+  let html = '';
+  selectedPPs.forEach(ppId => {
+    const pp = PAIN_POINTS.find(p=>p.id===ppId);
+    const r = ppRatings[ppId] || {impact:3,urgency:3};
+    html += `<div class="pp-rate"><div class="pp-rate-title">${pp.text}</div><div class="pp-rate-row">
+      <div class="rate-group"><span style="color:var(--blue)">Impact</span>${[1,2,3,4,5].map(v=>`<div class="rate-btn ${r.impact===v?'active-impact':''}" onclick="ratePP('${ppId}','impact',${v})">${v}</div>`).join('')}</div>
+      <div class="rate-group"><span style="color:var(--orange)">Urgency</span>${[1,2,3,4,5].map(v=>`<div class="rate-btn ${r.urgency===v?'active-urgency':''}" onclick="ratePP('${ppId}','urgency',${v})">${v}</div>`).join('')}</div>
+    </div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function ratePP(ppId, type, value) {
+  if (!ppRatings[ppId]) ppRatings[ppId] = {impact:3,urgency:3};
+  ppRatings[ppId][type] = value;
+  renderPPRatings();
+}
+
+// ============================================================
+// CALCULATION ENGINE
+// ============================================================
+function calculateAndShow() {
+  // Step 2 검증 (calculateAndShow가 직접 호출될 수도 있으므로)
+  if (selectedPPs.size === 0) {
+    showToast('핵심 비즈니스 과제를 1개 이상 선택해 주세요.', 'warning');
+    return;
+  }
+  const unrated = [...selectedPPs].filter(ppId => {
+    const r = ppRatings[ppId];
+    return !r || !r.impact || !r.urgency;
+  });
+  if (unrated.length > 0) {
+    const pp = PAIN_POINTS.find(p => p.id === unrated[0]);
+    showToast(`"${pp?.text}" 항목의 영향도·긴급도를 평가해 주세요.`, 'warning', 5000);
+    return;
+  }
+  goStep(4);
+  const industry = document.getElementById('inp_industry').value;
+  const company = document.getElementById('inp_company').value;
+  const sizeVal = document.getElementById('inp_size').value;
+  const revenueVal = document.getElementById('inp_revenue').value;
+  const horizon = document.getElementById('inp_horizon').value;
+  const priority = document.getElementById('inp_priority').value;
+
+  // ---- FINANCIAL DATA (prefer detailed fin_ inputs over range selector) ----
+  const finRevenue = document.getElementById('fin_revenue')?.value;
+  const finCOGS = document.getElementById('fin_cogs')?.value;
+  const finMfgCost = document.getElementById('fin_mfg_cost')?.value;
+  const finInventory = document.getElementById('fin_inventory')?.value;
+  const finLabor = document.getElementById('fin_labor')?.value;
+  const finHeadcount = document.getElementById('fin_headcount')?.value;
+  
+  // Revenue estimation (단위: 억원)
+  // Priority: fin_revenue (exact) > inp_revenue (range) > size midpoint
+  const revenueMidpoints = {small:500, mid:3000, large:15000};
+  let revenueEok;
+  let revenueSource;
+  if (finRevenue && parseFloat(finRevenue) > 0) {
+    revenueEok = parseFloat(finRevenue);
+    revenueSource = 'financial_input';
+  } else if (revenueVal) {
+    revenueEok = parseFloat(revenueVal);
+    revenueSource = 'range_select';
+  } else {
+    revenueEok = revenueMidpoints[sizeVal] || 3000;
+    revenueSource = 'size_estimate';
+  }
+  // Convert to 원 for calculation (1억 = 100,000,000원)
+  const revenueKRW = revenueEok * 100000000;
+  
+  // COGS estimation (for cost-based calculations)
+  // Industry average COGS ratios (% of revenue)
+  const cogsRatios = {"Automotive":0.78,"High Tech":0.60,"Life Sciences":0.45,"Chemicals":0.70,"Industrial Manufacturing":0.72,"Consumer Products":0.65,"Aerospace and Defense":0.75,"Mill Products":0.72,"Mining":0.68,"Oil, Gas, and Energy":0.66,"Utilities":0.48};
+  const cogsEok = finCOGS ? parseFloat(finCOGS) : revenueEok * (cogsRatios[industry] || cogsRatios[getBenchmarks(industry).mappedTo] || 0.70);
+  const mfgCostEok = finMfgCost ? parseFloat(finMfgCost) : cogsEok * 0.8; // 80% of COGS as mfg cost if not provided
+  const inventoryEok = finInventory ? parseFloat(finInventory) : null; // null = use days-based calc
+
+  // Get benchmarks
+  const benchInfo = getBenchmarks(industry);
+  const bench = benchInfo.data;
+
+  // Customer KPI values (use input or benchmark average)
+  const getKPI = (inputId, benchKey, higherIsBetter=true) => {
+    const input = document.getElementById(inputId)?.value;
+    if (input && input !== '') return { value: parseFloat(input), source: 'customer' };
+    return { value: bench[benchKey]?.avg || 0, source: 'benchmark' };
+  };
+
+  const customerKPIs = {
+    oee: getKPI('kpi_oee','oee',true),
+    downtime: getKPI('kpi_downtime','downtime',false),
+    scrap: getKPI('kpi_scrap','scrap',false),
+    inventory: getKPI('kpi_inventory','inventory',false),
+    otd: getKPI('kpi_otd','otd',true),
+    cycletime: getKPI('kpi_cycletime','cycletime',false)
+  };
+
+  // --- MATURITY SCORES ---
+  const domainScores = {};
+  DOMAINS.forEach(d => {
+    const qs = MATURITY_QS.filter(q => q.domain === d && (q.core || focusDomains.has(d)));
+    let sumWQ = 0, sumW = 0;
+    qs.forEach(q => {
+      const ans = maturityAnswers[q.id] || 2;
+      sumWQ += ans * q.w;
+      sumW += q.w;
+    });
+    domainScores[d] = sumW > 0 ? sumWQ / sumW : 2.0;
+  });
+  const avgMaturity = Object.values(domainScores).reduce((s,v)=>s+v,0) / 6;
+
+  // --- PRIORITY SCORING ---
+  // Priority = Impact × Urgency × Readiness
+  // Readiness = f(domain maturity, data availability)
+  const opportunities = [];
+  const selectedArray = [...selectedPPs];
+  
+  // Track double counting
+  const dcUsage = {};
+  Object.keys(DC_GROUPS).forEach(g => dcUsage[g] = 0);
+
+  selectedArray.forEach(ppId => {
+    const pp = PAIN_POINTS.find(p=>p.id===ppId);
+    const rating = ppRatings[ppId] || {impact:3,urgency:3};
+    const domScore = domainScores[pp.domain] || 2;
+    
+    // Readiness: higher maturity = more ready (already has foundation)
+    // But also: lower maturity = bigger gap = bigger opportunity
+    // Balance: readiness = maturity/5 (normalized), but gap drives value
+    const readiness = Math.max(0.3, domScore / 5); // min 0.3 even for low maturity
+    
+    // Data confidence
+    const kpiData = customerKPIs[pp.kpi];
+    const dataConfidence = kpiData?.source === 'customer' ? 1.0 : 0.6;
+    
+    // Priority score
+    const priorityScore = rating.impact * rating.urgency * readiness;
+    
+    // Feasibility (system-estimated)
+    // Higher maturity = easier to implement = higher feasibility
+    const feasibility = Math.min(5, Math.max(1, domScore + 0.5));
+    
+    // Value calculation - Gap based
+    const benchKPI = bench[pp.kpi];
+    let gapPct = 0;
+    let currentVal = kpiData?.value || benchKPI?.avg || 0;
+    let targetVal = benchKPI?.top25 || currentVal;
+    
+    // For "higher is better" KPIs (OEE, OTD, forecast, capacity)
+    const higherBetter = ['oee','otd','forecast','capacity'].includes(pp.kpi);
+    if (higherBetter) {
+      gapPct = Math.max(0, (targetVal - currentVal) / (currentVal || 1));
+    } else {
+      // For "lower is better" (downtime, scrap, inventory, cycletime, maintenance)
+      gapPct = Math.max(0, (currentVal - targetVal) / (currentVal || 1));
+    }
+    
+    // Revenue impact by area
+    const impactMultipliers = {
+      "매출": 0.02,           // 2% of revenue per point of gap
+      "매출원가": 0.015,      // 1.5% of revenue
+      "운전자본": 0.01,       // 1% (one-time capital release)
+      "세전이익률": 0.012,
+      "판관비": 0.005
+    };
+    const baseMultiplier = impactMultipliers[pp.impact] || 0.01;
+    
+    // Double counting adjustment
+    let dcFactor = 1.0;
+    for (const [group, members] of Object.entries(DC_GROUPS)) {
+      if (members.includes(ppId)) {
+        dcFactor = DC_FACTORS[Math.min(dcUsage[group], DC_FACTORS.length-1)];
+        dcUsage[group]++;
+        break;
+      }
+    }
+    
+    // Value scenarios (in KRW 원)
+    const fullValue = revenueKRW * gapPct * baseMultiplier * dcFactor;
+    const scenarios = {
+      conservative: fullValue * CAPTURE_RATES.conservative,
+      expected: fullValue * CAPTURE_RATES.expected,
+      ambitious: fullValue * CAPTURE_RATES.ambitious
+    };
+    
+    // Confidence level
+    let confidence = 'Medium';
+    if (kpiData?.source === 'customer' && benchInfo.validated) confidence = 'High';
+    else if (!benchInfo.validated || kpiData?.source === 'benchmark') confidence = 'Low';
+    
+    // Classification - aligned with 4-quadrant chart axes
+    // X-axis: feasibility (1-5), midpoint 2.75
+    // Y-axis: impact × urgency / 5 (0-5), midpoint 2.75
+    const impactScore = rating.impact * rating.urgency / 5;
+    let oppType = 'monitor';
+    if (feasibility >= 2.75 && impactScore >= 2.75) oppType = 'quickwin';
+    else if (feasibility < 2.75 && impactScore >= 2.75) oppType = 'strategic';
+    else if (feasibility >= 2.75 && impactScore < 2.75) oppType = 'incremental';
+    
+    opportunities.push({
+      ...pp, rating, priorityScore, feasibility, readiness,
+      domScore, gapPct, scenarios, confidence, oppType,
+      currentVal, targetVal, dcFactor, dataSource: kpiData?.source,
+      benchSource: benchInfo.source
+    });
+  });
+  
+  // Sort by priority score
+  opportunities.sort((a,b) => b.priorityScore - a.priorityScore);
+  
+  // Total value
+  const totalScenarios = {
+    conservative: opportunities.reduce((s,o)=>s+o.scenarios.conservative, 0),
+    expected: opportunities.reduce((s,o)=>s+o.scenarios.expected, 0),
+    ambitious: opportunities.reduce((s,o)=>s+o.scenarios.ambitious, 0)
+  };
+  
+  // Overall confidence + 이유 구체화
+  const customerInputCount = Object.values(customerKPIs).filter(k=>k.source==='customer').length;
+  const hasFinancialData = revenueSource === 'financial_input';
+  const finFieldCount = [finRevenue, finCOGS, finMfgCost, finInventory, finLabor].filter(v => v && parseFloat(v) > 0).length;
+  const dataScore = customerInputCount + (hasFinancialData ? 2 : 0) + Math.min(finFieldCount, 3);
+  const overallConfidence = dataScore >= 6 ? 'High' : dataScore >= 3 ? 'Medium' : 'Low';
+
+  // 신뢰도 이유 메시지
+  const confidenceReasons = [];
+  if (!hasFinancialData) confidenceReasons.push('실제 매출액 미입력 (규모 추정 적용)');
+  if (finFieldCount < 2) confidenceReasons.push('재무 세부 항목 입력 부족');
+  if (customerInputCount < 3) confidenceReasons.push(`운영 KPI ${6-customerInputCount}개가 업계 평균값으로 대체됨`);
+  if (!benchInfo.validated) confidenceReasons.push(`${industry} 전용 벤치마크 없음 (유사 산업 데이터 적용)`);
+  const confidenceReason = confidenceReasons.length > 0
+    ? `신뢰도가 낮은 이유: ${confidenceReasons.join(' · ')}`
+    : '고객 제공 데이터 기반으로 신뢰도가 높습니다.';
+
+  // 모순 경고 — Pain Point 선택했는데 해당 도메인 성숙도가 높은 경우
+  const contradictions = [];
+  opportunities.forEach(opp => {
+    const domScore = domainScores[opp.domain] || 0;
+    if (domScore >= 4 && opp.rating.impact >= 4) {
+      contradictions.push(`"${opp.text}" — ${DOMAIN_LABELS[opp.domain]?.split('(')[0]?.trim()} 성숙도가 높음(${domScore.toFixed(1)}/5)에도 높은 영향도 선택`);
+    }
+  });
+
+  // Render results
+  renderResults({
+    company, industry, revenueEok, horizon, priority,
+    domainScores, avgMaturity, opportunities, totalScenarios,
+    overallConfidence, confidenceReason, contradictions,
+    benchInfo, customerKPIs, customerInputCount,
+    revenueSource, finFieldCount
+  });
+}
+
+// ============================================================
+// RESULTS RENDERING
+// ============================================================
+function renderResults(data) {
+  const container = document.getElementById('resultsContainer');
+  window._resultData = data; // Store globally for scenario switching
+  window._currentScenario = 'expected'; // Default scenario
+  const fmtMoney = (n) => {
+    // n is in 원(KRW). Display in 억원 or 조원.
+    const eok = n / 100000000; // 억원
+    if (eok >= 10000) return `${(eok/10000).toFixed(1)}조원`;
+    if (eok >= 1) return `${eok.toFixed(0)}억원`;
+    const man = n / 10000; // 만원
+    if (man >= 1) return `${man.toFixed(0)}만원`;
+    return `${n.toFixed(0)}원`;
+  };
+  
+  // Executive Summary generation
+  const topOpp = data.opportunities[0];
+  const weakestDomain = Object.entries(data.domainScores).sort((a,b)=>a[1]-b[1])[0];
+  const strongestDomain = Object.entries(data.domainScores).sort((a,b)=>b[1]-a[1])[0];
+  
+  let summaryText = `${data.company}의 현재 Manufacturing AI 성숙도는 평균 ${data.avgMaturity.toFixed(1)}/5.0 수준으로 평가됩니다. `;
+  summaryText += `${DOMAIN_LABELS[weakestDomain[0]].split('(')[0].trim()} 영역(${weakestDomain[1].toFixed(1)}점)에서 가장 큰 개선 기회가 식별되었으며, `;
+  summaryText += `${DOMAIN_LABELS[strongestDomain[0]].split('(')[0].trim()} 영역(${strongestDomain[1].toFixed(1)}점)은 상대적 강점입니다. `;
+  if (topOpp) summaryText += `가장 높은 우선순위 과제는 "${topOpp.text}"이며, `;
+  summaryText += `예상 연간 가치 기회는 ${fmtMoney(data.totalScenarios.conservative)}–${fmtMoney(data.totalScenarios.ambitious)} 범위로 추정됩니다. `;
+  summaryText += `본 결과는 ${data.customerInputCount}개의 고객 제공 데이터와 ${data.benchInfo.source}를 기반으로 산출된 방향적 추정(방향적 추정치)이며, 정밀 검증을 위한 Deep Dive를 권장합니다.`;
+
+  // Validation needed
+  const needsValidation = [];
+  Object.entries(data.customerKPIs).forEach(([k,v]) => {
+    if (v.source !== 'customer') needsValidation.push(k);
+  });
+
+  let html = '';
+
+  // ── Disclaimer 전면 배치 ──
+  const confColor = {High:'var(--green)', Medium:'var(--orange)', Low:'var(--red)'}[data.overallConfidence];
+  const confLabel = {High:'높음', Medium:'보통', Low:'낮음'}[data.overallConfidence];
+  html += `<div style="background:#FFFBEA;border:1px solid #F0C040;border-left:4px solid ${confColor};border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <strong>⚠ 방향적 추정치 안내</strong>
+      <span style="font-size:11px;background:${confColor};color:white;padding:2px 8px;border-radius:10px;">신뢰도 ${confLabel}</span>
+    </div>
+    <div style="color:var(--text-light);line-height:1.7;">
+      본 결과는 SAP VLM 글로벌 벤치마크 기반 <strong>방향적 추정치</strong>로, 실제 투자 결정을 위한 공식 제안서가 아닙니다.<br>
+      <span style="color:${data.overallConfidence==='Low'?'var(--red)':'var(--text-light)'};">${data.confidenceReason || ''}</span>
+      ${data.overallConfidence !== 'High' ? `<br><a href="#" onclick="goStep(0);return false;" style="color:var(--blue);">→ 1단계에서 재무 정보 또는 KPI를 추가 입력하면 정확도가 향상됩니다.</a>` : ''}
+    </div>
+  </div>`;
+
+  // ── 모순 경고 ──
+  if (data.contradictions && data.contradictions.length > 0) {
+    html += `<div style="background:#FBE9E7;border:1px solid #f5c2c2;border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--red);">
+      ⚠ <strong>입력값 검토 권장:</strong> 아래 과제는 성숙도 점수와 영향도 평가가 상충될 수 있습니다.<br>
+      ${data.contradictions.map(c=>`· ${c}`).join('<br>')}
+    </div>`;
+  }
+  const resp = getRespondentInfo();
+  const reportDate = new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
+  html += `<div class="gated-wrapper"><div class="gated-blur"><div class="exec-summary"><h3>경영진 요약</h3>
+    <div style="display:flex;justify-content:space-between;font-size:10px;opacity:0.7;margin-bottom:10px;">
+      <span>${resp.company} · ${resp.dept} ${resp.name} ${resp.title}</span><span>${reportDate}</span>
+    </div>
+    <p>${summaryText}</p></div></div>
+    <div class="gated-overlay">
+      <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+      <div class="gated-title">SAP 전문가와 심층 상담을 신청하세요</div>
+      <div class="gated-desc">경영진 보고용 요약, 상세 가치 추정, Best Practice 권장사항을 SAP 담당자와 함께 검토하세요.</div>
+      <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">심층 상담 신청하기</button>
+    </div></div>`;
+
+  html += '<div class="results-grid">';
+
+  // Maturity Radar
+  html += `<div class="result-card"><div class="result-title">성숙도 프로필</div><div class="chart-container"><canvas id="radarChart"></canvas></div>
+    <div style="margin-top:12px;font-size:11px;">
+      <div style="display:flex;justify-content:space-between;"><span>주요 강점: ${DOMAIN_LABELS[strongestDomain[0]].split('(')[0].trim()}</span><span style="color:var(--green);font-weight:500;">${strongestDomain[1].toFixed(1)}/5</span></div>
+      <div style="display:flex;justify-content:space-between;"><span>최대 격차: ${DOMAIN_LABELS[weakestDomain[0]].split('(')[0].trim()}</span><span style="color:var(--red);font-weight:500;">${weakestDomain[1].toFixed(1)}/5</span></div>
+    </div>
+    <div class="disclaimer">벤치마크: ${data.benchInfo.validated ? 'SAP VLM 산업 벤치마크' : '일반 참조'}</div>
+  </div>`;
+
+  // Value Summary - GATED
+  const scenarioLabels = {expected:'기대치', conservative:'보수적', ambitious:'적극적'};
+  const captureRateLabels = {expected:'30%', conservative:'15%', ambitious:'50%'};
+  html += `<div class="result-card" style="position:relative;overflow:hidden;"><div class="gated-blur"><div class="result-title">추정 가치 기회</div>
+    <div class="value-big">${fmtMoney(data.totalScenarios.conservative)} – ${fmtMoney(data.totalScenarios.ambitious)}</div>
+    <div class="value-range">연간 추정 · 신뢰도: <span class="confidence-badge conf-${data.overallConfidence.toLowerCase()}">${{High:'높음',Medium:'보통',Low:'낮음'}[data.overallConfidence]}</span></div>
+    <div style="margin-top:16px;">
+      <div class="scenario-tabs" id="scenarioTabs">
+        <span class="scenario-tab active" onclick="switchScenario('expected')">기대치</span>
+        <span class="scenario-tab" onclick="switchScenario('conservative')">보수적</span>
+        <span class="scenario-tab" onclick="switchScenario('ambitious')">적극적</span>
+      </div>
+      <div id="scenarioValue" class="value-big" style="font-size:28px;">${fmtMoney(data.totalScenarios.expected)} <span style="font-size:12px;color:var(--text-light);">/연간</span></div>
+      <div id="scenarioDesc" style="margin-top:4px;font-size:10px;color:var(--text-light);">달성률 30% 기준 · 격차 대비 실현 가능 비율</div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text-light);">
+      ${data.confidenceReason || ''}
+    </div>
+    ${data.overallConfidence !== 'High' ? `<div style="margin-top:8px;padding:8px 12px;background:var(--light-blue);border-radius:4px;font-size:11px;cursor:pointer;" onclick="goStep(0)"><strong>정확도를 높이려면:</strong> 1단계에서 재무정보 또는 운영 KPI를 추가 입력하세요 →</div>` : ''}
+    <div class="disclaimer">${data.benchInfo.validated ? 'SAP VLM 벤치마크 기반 산출' : '추정 모델 기반 (검증된 산업 벤치마크 없음)'}</div>
+  </div>
+  <div class="gated-overlay" style="border-radius:var(--radius);">
+    <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+    <div class="gated-title">SAP 전문가와 심층 상담을 신청하세요</div>
+    <div class="gated-desc">시나리오별 상세 가치 추정 결과를 SAP 담당자와 함께 검토하세요.</div>
+    <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">심층 상담 신청하기</button>
+  </div></div>`;
+
+  // ── 우선순위 기회 맵 + SAP 솔루션 매핑 (솔루션은 Gated) ──
+  html += `<div class="result-card full">
+    <div class="result-title">우선순위 기회 맵 &amp; SAP 솔루션 매핑</div>
+    <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px;">사업 영향도 vs 실행 용이도 Matrix</div>
+        <div style="position:relative;background:var(--bg);border-radius:6px;padding:8px;">
+          <canvas id="quadrantChart" style="max-height:340px;"></canvas>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;font-size:10px;">
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#188918;display:inline-block;"></span>⚡ Quick Win (높은 영향 + 쉬운 실행)</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#0070F2;display:inline-block;"></span>🎯 전략적 이니셔티브 (높은 영향 + 어려운 실행)</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#E76500;display:inline-block;"></span>🔄 점진적 개선 (낮은 영향 + 쉬운 실행)</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#aaa;display:inline-block;"></span>👁 모니터링 (낮은 영향 + 어려운 실행)</div>
+        </div>
+      </div>
+      <div style="position:relative;overflow:hidden;border-radius:var(--radius);">
+        <div class="gated-blur">
+          <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px;">SAP 솔루션 적용 가능성</div>
+          ${renderSolutionMatrix(data.opportunities)}
+        </div>
+        <div class="gated-overlay" style="border-radius:var(--radius);">
+          <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+          <div class="gated-title">SAP 전문가와 심층 상담을 신청하세요</div>
+          <div class="gated-desc">선택한 과제별 SAP 솔루션 매핑과 적용 가능성을 SAP 담당자와 함께 검토하세요.</div>
+          <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">심층 상담 신청하기</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Opportunity detail cards - GATED
+  if (data.opportunities.length > 0) {
+    html += `<div class="result-card full" style="position:relative;overflow:hidden;"><div class="gated-blur">
+      <div class="result-title">기회별 상세 분석</div>`;
+    data.opportunities.forEach((opp, idx) => {
+      const typeLabels = {quickwin:'Quick Win',strategic:'전략적 이니셔티브',incremental:'점진적 개선',monitor:'모니터링 / 검증'};
+      html += `<div class="opp-card opp-${opp.oppType}" onclick="this.querySelector('.trace-detail').classList.toggle('open')">
+        <div class="opp-type">${typeLabels[opp.oppType]} · #${idx+1}</div>
+        <div class="opp-title">${opp.text}</div>
+        <div class="opp-meta">
+          영역: ${opp.domain} · 영향도: ${opp.rating.impact}/5 · 긴급도: ${opp.rating.urgency}/5 ·
+          가치: <span class="opp-value" data-c="${opp.scenarios.conservative}" data-e="${opp.scenarios.expected}" data-a="${opp.scenarios.ambitious}">${fmtMoney(opp.scenarios.expected)}</span> ·
+          <span style="font-size:10px;color:var(--blue);">${opp.sapSolution || ''}</span>
+        </div>
+        <div class="trace-detail">
+          <div class="trace-row"><span class="trace-label">VLM 가치동인:</span>${opp.vd}</div>
+          <div class="trace-row"><span class="trace-label">연결 KPI:</span>${opp.kpi} (현재: ${typeof opp.currentVal==='number'?opp.currentVal.toFixed(1):'N/A'} → 목표: ${typeof opp.targetVal==='number'?opp.targetVal.toFixed(1):'N/A'})</div>
+          <div class="trace-row"><span class="trace-label">격차:</span>${(opp.gapPct*100).toFixed(1)}%</div>
+          <div class="trace-row"><span class="trace-label">추천 솔루션:</span>${opp.sapSolution || '-'}</div>
+          <div class="trace-row"><span class="trace-label">산출식:</span>매출 × 격차% × 영향계수 × 달성률 × 중복보정</div>
+          <div style="margin-top:6px;font-style:italic;color:var(--text-light);">클릭하여 접기</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>
+    <div class="gated-overlay" style="border-radius:var(--radius);">
+      <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+      <div class="gated-title">SAP 전문가와 심층 상담을 신청하세요</div>
+      <div class="gated-desc">기회별 가치 추정, SAP 솔루션 연결, KPI 격차 분석을 SAP 담당자와 함께 검토하세요.</div>
+      <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">심층 상담 신청하기</button>
+    </div></div>`;
+  }
+
+  // Best Practice - GATED
+  const bpRecommendations = getBestPracticeRecommendations(data.domainScores, data.opportunities);
+  html += `<div class="result-card full" style="position:relative;overflow:hidden;">`;
+  html += `<div class="gated-blur"><div class="result-title">Best Practice 권장사항</div>
+    <div class="card-desc" style="margin-bottom:12px;">SAP VLM Best Practice 기반 · 현재 성숙도 격차 영역에 대한 구체적 실행 방안</div>`;
+  bpRecommendations.forEach(rec => {
+    html += `<div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);border-left:3px solid ${rec.color};">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:12px;font-weight:600;color:${rec.color};">${rec.domain}</span>
+        <span style="font-size:10px;color:var(--text-light);">현재 ${rec.score}/5 · ${rec.level}</span>
+      </div>
+      <div style="font-size:11px;line-height:1.7;">
+        ${rec.practices.map((p,i) => `<div style="margin-bottom:4px;"><span style="color:var(--blue);font-weight:500;">${i+1}.</span> ${p}</div>`).join('')}
+      </div>
+    </div>`;
+  });
+  html += `<div class="disclaimer">출처: SAP VLM Best Practice Library (제조 / 자산관리 / R&D 엔지니어링)</div></div>`;
+  html += `<div class="gated-overlay" style="border-radius:var(--radius);">
+    <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+    <div class="gated-title">SAP 전문가와 심층 상담을 신청하세요</div>
+    <div class="gated-desc">SAP VLM 기반 맞춤형 Best Practice를 SAP 담당자와 함께 검토하세요.</div>
+    <button class="gated-cta" onclick="document.getElementById('ctaSection').scrollIntoView({behavior:'smooth'})">심층 상담 신청하기</button>
+  </div></div>`;
+
+  html += `<div class="result-card full"><div class="result-title">권장 후속 단계</div>
+    <div style="font-size:12px;line-height:2;">
+      <div><strong>1. 데이터 검증:</strong> ${needsValidation.length > 0 ? needsValidation.join(', ') + ' 데이터 확인 필요' : '주요 KPI 확인 완료'}</div>
+      <div><strong>2. Deep Dive 워크숍:</strong> 상위 ${Math.min(3, data.opportunities.length)}개 기회에 대한 상세 분석 (2~3시간)</div>
+      <div><strong>3. 비즈니스 케이스 수립:</strong> SAP VLM 기반 정밀 비즈니스 케이스 수립</div>
+      <div><strong>4. PoC 계획:</strong> Quick Win 항목 대상 3개월 PoC 설계</div>
+    </div>
+    <div class="disclaimer">본 진단 결과는 방향적 추정치이며, 확정 투자 의사결정을 위해서는 Deep Dive 분석이 필요합니다.</div>
+  </div>`;
+  
+  // CTA Section - Sales Consultation
+  html += `<div class="result-card full" id="ctaSection" style="background:linear-gradient(135deg, #00144A 0%, #0070F2 100%);color:white;border:none;text-align:center;padding:40px 30px;">
+    <div style="font-size:20px;font-weight:700;margin-bottom:8px;">전체 분석 결과를 확인하시겠습니까?</div>
+    <div style="font-size:13px;opacity:0.85;margin-bottom:24px;line-height:1.8;">
+      경영진 요약 · 시나리오별 가치 추정 · 기회별 VLM 상세 분석 · Best Practice 권장사항<br>
+      SAP 영업 담당자가 귀사 맞춤형 상세 보고서와 함께 연락드립니다.
+    </div>
+    <div style="max-width:480px;margin:0 auto;text-align:left;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:10px;opacity:0.7;display:block;margin-bottom:4px;">담당자명</label>
+          <input id="ctaName" type="text" value="${resp.name || ''}" style="width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;border-radius:4px;font-size:12px;" placeholder="홍길동">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:0.7;display:block;margin-bottom:4px;">회사명</label>
+          <input id="ctaCompany" type="text" value="${data.company || ''}" style="width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;border-radius:4px;font-size:12px;" placeholder="(주) OO기업">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:10px;opacity:0.7;display:block;margin-bottom:4px;">이메일</label>
+          <input id="ctaEmail" type="email" value="${resp.email || ''}" style="width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;border-radius:4px;font-size:12px;" placeholder="name@company.com">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:0.7;display:block;margin-bottom:4px;">연락처 <span style="opacity:0.6;">(선택)</span></label>
+          <input id="ctaPhone" type="tel" style="width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:white;border-radius:4px;font-size:12px;" placeholder="010-0000-0000 (선택)">
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:10px;opacity:0.7;display:block;margin-bottom:4px;">관심 영역 (선택)</label>
+        <select id="ctaInterest" style="width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:white;border-radius:4px;font-size:12px;">
+          <option value="full">전체 상세 분석 보고서</option>
+          <option value="workshop">Deep Dive 워크숍</option>
+          <option value="poc">PoC 설계 상담</option>
+          <option value="value">비즈니스 케이스 수립</option>
+        </select>
+      </div>
+      <button onclick="submitConsultation()" style="width:100%;padding:14px;background:white;color:var(--blue);border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+        SAP 영업 상담 신청하기
+      </button>
+      <div id="ctaConfirm" style="display:none;margin-top:12px;padding:12px;background:rgba(255,255,255,0.15);border-radius:6px;font-size:12px;text-align:center;">
+        신청이 완료되었습니다. SAP 담당자가 영업일 기준 1~2일 이내에 연락드립니다.
+      </div>
+    </div>
+    <div style="margin-top:20px;font-size:10px;opacity:0.5;">SAP Korea · 개인정보는 상담 목적으로만 활용됩니다.</div>
+  </div>`;
+  
+  html += '</div>'; // close results-grid
+  container.innerHTML = html;
+  
+  // Render radar chart and quadrant chart
+  setTimeout(() => {
+    renderRadar(data.domainScores, data.benchInfo);
+    renderQuadrantChart(data.opportunities);
+    window._quadrantInstance = quadrantInstance;
+  }, 100);
+}
+
+// ============================================================
+// DATA EXPORT - Collect all assessment data
+// ============================================================
+// Google Sheets Web App URL (set after deploying Apps Script)
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw9ob8Y81mI7eM47JZWzYx4rEy8MZdNjHXXRL2EOQxPN8-s6W96oiCVZOjJHmLv7Jw/exec';
+
+function collectAllData() {
+  const data = window._resultData;
+  if (!data) return null;
+  
+  const resp = getRespondentInfo();
+  const timestamp = new Date().toLocaleString('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+  
+  // 1. Basic Info
+  const basicInfo = {
+    timestamp,
+    respondent_name: resp.name,
+    respondent_title: resp.title,
+    respondent_dept: resp.dept,
+    respondent_email: resp.email,
+    respondent_company: resp.company,
+    company: data.company,
+    industry: data.industry,
+    revenue_eok: data.revenueEok,
+    horizon: data.horizon,
+    priority: data.priority
+  };
+  
+  // 2. Financial Data
+  const finFields = ['fin_revenue','fin_cogs','fin_op_profit','fin_mfg_cost','fin_labor','fin_inventory','fin_capex','fin_rnd','fin_headcount'];
+  const financialData = {};
+  finFields.forEach(id => {
+    const el = document.getElementById(id);
+    financialData[id] = el?.value || '';
+  });
+  financialData.revenue_source = data.revenueSource || '';
+  financialData.dart_loaded = window._dartLoaded ? 'Y' : 'N';
+  
+  // 3. KPI Inputs
+  const kpiFields = ['kpi_oee','kpi_downtime','kpi_scrap','kpi_inventory','kpi_otd','kpi_cycletime'];
+  const kpiData = {};
+  kpiFields.forEach(id => {
+    const el = document.getElementById(id);
+    kpiData[id] = el?.value || '';
+  });
+  
+  // 4. Maturity Scores by domain
+  const maturityData = {};
+  if (data.domainScores) {
+    Object.entries(data.domainScores).forEach(([domain, score]) => {
+      maturityData[`maturity_${domain}`] = score.toFixed(2);
+    });
+  }
+  maturityData.maturity_avg = data.avgMaturity?.toFixed(2) || '';
+  
+  // 5. Individual maturity answers
+  const maturityAnswersData = {};
+  Object.entries(maturityAnswers || {}).forEach(([qId, val]) => {
+    maturityAnswersData[`answer_${qId}`] = val;
+  });
+  
+  // 6. Pain Points selected + ratings
+  const painPointData = {};
+  const selectedPPs = document.querySelectorAll('.pp-checkbox:checked');
+  const ppIds = Array.from(selectedPPs).map(cb => cb.dataset.ppId || cb.value);
+  painPointData.selected_pain_points = ppIds.join(', ');
+  painPointData.pain_point_count = ppIds.length;
+  
+  ppIds.forEach(ppId => {
+    const impEl = document.querySelector(`.rate-btn.active-impact[data-pp="${ppId}"]`);
+    const urgEl = document.querySelector(`.rate-btn.active-urgency[data-pp="${ppId}"]`);
+    painPointData[`pp_${ppId}_impact`] = impEl?.dataset.val || '';
+    painPointData[`pp_${ppId}_urgency`] = urgEl?.dataset.val || '';
+  });
+  
+  // 7. Results / Opportunities
+  const resultsData = {
+    total_conservative: data.totalScenarios?.conservative || 0,
+    total_expected: data.totalScenarios?.expected || 0,
+    total_ambitious: data.totalScenarios?.ambitious || 0,
+    confidence: data.overallConfidence || '',
+    opportunity_count: data.opportunities?.length || 0,
+    bench_source: data.benchInfo?.source || ''
+  };
+  
+  // 8. Individual opportunities
+  const oppData = [];
+  (data.opportunities || []).forEach((opp, idx) => {
+    oppData.push({
+      rank: idx + 1,
+      text: opp.text,
+      type: opp.oppType,
+      domain: opp.domain,
+      kpi: opp.kpi,
+      impact: opp.rating?.impact,
+      urgency: opp.rating?.urgency,
+      feasibility: opp.feasibility,
+      value_conservative: opp.scenarios?.conservative || 0,
+      value_expected: opp.scenarios?.expected || 0,
+      value_ambitious: opp.scenarios?.ambitious || 0,
+      gap_pct: (opp.gapPct * 100).toFixed(1),
+      confidence: opp.confidence,
+      vd: opp.vd,
+      data_source: opp.dataSource
+    });
+  });
+  
+  return { basicInfo, financialData, kpiData, maturityData, maturityAnswersData, painPointData, resultsData, oppData };
+}
+
+// ============================================================
+// EXCEL EXPORT (.xlsx)
+// ============================================================
+function exportToExcel() {
+  const allData = collectAllData();
+  if (!allData) { showToast('결과 데이터가 없습니다. 진단을 먼저 완료해 주세요.', 'warning'); return; }
+  
+  const wb = XLSX.utils.book_new();
+  
+  // Sheet 1: Summary (한 줄 요약)
+  const summaryRow = {
+    ...allData.basicInfo,
+    ...allData.financialData,
+    ...allData.kpiData,
+    ...allData.maturityData,
+    ...allData.resultsData,
+    ...allData.painPointData
+  };
+  const ws1 = XLSX.utils.json_to_sheet([summaryRow]);
+  XLSX.utils.book_append_sheet(wb, ws1, '요약');
+  
+  // Sheet 2: Opportunities detail
+  if (allData.oppData.length > 0) {
+    const ws2 = XLSX.utils.json_to_sheet(allData.oppData);
+    XLSX.utils.book_append_sheet(wb, ws2, '기회분석');
+  }
+  
+  // Sheet 3: Maturity answers (all individual Q&A)
+  const matAnswerRows = Object.entries(allData.maturityAnswersData).map(([k, v]) => ({
+    question_id: k.replace('answer_', ''),
+    score: v
+  }));
+  if (matAnswerRows.length > 0) {
+    const ws3 = XLSX.utils.json_to_sheet(matAnswerRows);
+    XLSX.utils.book_append_sheet(wb, ws3, '성숙도응답');
+  }
+  
+  // Generate filename with company name and date
+  const company = allData.basicInfo.company || 'Assessment';
+  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const filename = `MfgAI_Assessment_${company}_${dateStr}.xlsx`;
+  
+  XLSX.writeFile(wb, filename);
+  
+  showExportStatus('excel', `${filename} 다운로드 완료`);
+}
+
+// ============================================================
+// GOOGLE SHEETS EXPORT (via Apps Script Web App)
+// ============================================================
+async function exportToGoogleSheets() {
+  if (!GOOGLE_SHEETS_URL) {
+    showToast('Google Sheets 연동 URL이 설정되지 않았습니다.\nGOOGLE_SHEETS_URL 변수에 Apps Script 웹앱 URL을 입력해 주세요.', 'info', 6000);
+    return;
+  }
+  
+  const allData = collectAllData();
+  if (!allData) { showToast('결과 데이터가 없습니다.', 'warning'); return; }
+  
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '전송 중...';
+  
+  try {
+    // Flatten data for single-row append
+    const flatRow = {
+      ...allData.basicInfo,
+      ...allData.financialData,
+      ...allData.kpiData,
+      ...allData.maturityData,
+      ...allData.resultsData,
+      pain_points: allData.painPointData.selected_pain_points,
+      pain_point_count: allData.painPointData.pain_point_count,
+      opportunities: allData.oppData.map(o => `${o.rank}.${o.text}(${o.type})`).join(' | ')
+    };
+    
+    const response = await fetch(GOOGLE_SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Apps Script requires no-cors from external origins
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(flatRow)
+    });
+    
+    showExportStatus('sheets', 'Google Sheets에 전송 완료');
+    btn.textContent = '전송 완료';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Google Sheets 전송'; }, 3000);
+    
+  } catch (e) {
+    showExportStatus('sheets', `전송 실패: ${e.message}`);
+    btn.disabled = false;
+    btn.textContent = 'Google Sheets 전송';
+  }
+}
+
+function showExportStatus(type, message) {
+  const el = document.getElementById('exportStatus');
+  if (el) {
+    el.textContent = message;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 5000);
+  }
+}
+
+// ============================================================
+// CONSULTATION SUBMISSION (Placeholder)
+// ============================================================
+async function submitConsultation() {
+  const name    = document.getElementById('ctaName')?.value?.trim();
+  const company = document.getElementById('ctaCompany')?.value?.trim();
+  const email   = document.getElementById('ctaEmail')?.value?.trim();
+  const phone   = document.getElementById('ctaPhone')?.value?.trim();
+  const interest= document.getElementById('ctaInterest')?.value;
+
+  if (!name || !email) {
+    showToast('담당자명과 이메일은 필수 입력 항목입니다.');
+    if (!name) document.getElementById('ctaName').focus();
+    else document.getElementById('ctaEmail').focus();
+    return;
+  }
+
+  if (!GOOGLE_SHEETS_URL) {
+    showToast('Google Sheets 연동 URL이 설정되지 않았습니다.\nGOOGLE_SHEETS_URL 변수에 Apps Script 웹앱 URL을 입력해 주세요.', 'info', 6000);
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="submitConsultation()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '처리 중...'; }
+
+  try {
+    // ── 1. 블러 해제 후 결과 페이지 캡처 ──
+    const resultEl = document.getElementById('resultsContainer');
+    document.body.classList.add('unlocked'); // 블러 전체 해제
+    await new Promise(r => setTimeout(r, 300)); // CSS 전환 대기
+
+    const canvas = await html2canvas(resultEl, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#F8F9FA',
+      logging: false,
+      windowWidth: 1200,
+    });
+
+    document.body.classList.remove('unlocked'); // 블러 복원
+
+    const imageBase64 = canvas.toDataURL('image/png').split(',')[1]; // base64만 추출
+
+    // ── 2. 전송할 데이터 수집 ──
+    const allData = collectAllData() || {};
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const fileName = `Quick_${(company||'unknown').replace(/[^가-힣a-zA-Z0-9]/g,'')}_${(name||'unknown').replace(/[^가-힣a-zA-Z0-9]/g,'')}_${dateStr}`;
+
+    const payload = {
+      // 개인 / 기본 정보
+      timestamp:        new Date().toLocaleString('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}),
+      cta_name:         name,
+      cta_company:      company,
+      cta_email:        email,
+      cta_phone:        phone,
+      cta_interest:     interest,
+      // 기업 / 진단 정보
+      ...( allData.basicInfo    || {} ),
+      ...( allData.financialData|| {} ),
+      ...( allData.kpiData      || {} ),
+      ...( allData.maturityData || {} ),
+      ...( allData.resultsData  || {} ),
+      // 선택 과제
+      pain_points:      (allData.painPointData || {}).selected_pain_points || '',
+      pain_point_count: (allData.painPointData || {}).pain_point_count || 0,
+      // 우선 기회 요약
+      opportunities:    (allData.oppData || []).map(o =>
+        `${o.rank}.${o.text}(${o.type},${o.value_expected ? Math.round(o.value_expected/100000000)+'억' : '-'})`
+      ).join(' | '),
+      // 캡처 이미지
+      image_base64:     imageBase64,
+      file_name:        fileName,
+    };
+
+    // ── 3. Apps Script로 POST ──
+    await fetch(GOOGLE_SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    // ── 4. 완료 처리 ──
+    const confirmEl = document.getElementById('ctaConfirm');
+    if (confirmEl) {
+      confirmEl.style.display = 'block';
+      confirmEl.innerHTML = `<strong>${name}님</strong>, 신청이 완료되었습니다.<br>SAP 담당자가 곧 연락드리겠습니다.`;
+    }
+    if (btn) { btn.textContent = '신청 완료'; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
+
+  } catch (e) {
+    console.error('submitConsultation error:', e);
+    showToast('전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'SAP 영업 상담 신청하기'; }
+    document.body.classList.remove('unlocked');
+  }
+}
+
+// ============================================================
+// SCENARIO SWITCHING
+// ============================================================
+function switchScenario(scenario) {
+  window._currentScenario = scenario;
+  const data = window._resultData;
+  if (!data) return;
+  
+  const fmtMoney = (n) => {
+    const eok = n / 100000000;
+    if (eok >= 10000) return `${(eok/10000).toFixed(1)}조원`;
+    if (eok >= 1) return `${eok.toFixed(0)}억원`;
+    const man = n / 10000;
+    if (man >= 1) return `${man.toFixed(0)}만원`;
+    return `${n.toFixed(0)}원`;
+  };
+  
+  const captureRates = {conservative:'15%', expected:'30%', ambitious:'50%'};
+  const scenarioDescs = {
+    conservative:'달성률 15% 기준 · 최소 투자 / 부분 구현 시나리오',
+    expected:'달성률 30% 기준 · 표준 구현 / 적절한 변화관리 시나리오',
+    ambitious:'달성률 50% 기준 · 전면 구현 / 강력한 변화관리 시나리오'
+  };
+  
+  // 1. Update tab active state
+  const tabs = document.querySelectorAll('#scenarioTabs .scenario-tab');
+  const tabMap = ['expected','conservative','ambitious'];
+  tabs.forEach((tab, i) => {
+    tab.classList.toggle('active', tabMap[i] === scenario);
+  });
+  
+  // 2. Update main value display
+  const valueEl = document.getElementById('scenarioValue');
+  if (valueEl) {
+    valueEl.innerHTML = `${fmtMoney(data.totalScenarios[scenario])} <span style="font-size:12px;color:var(--text-light);">/연간</span>`;
+  }
+  
+  // 3. Update scenario description
+  const descEl = document.getElementById('scenarioDesc');
+  if (descEl) {
+    descEl.textContent = scenarioDescs[scenario];
+  }
+  
+  // 4. Update each opportunity card value
+  const oppValues = document.querySelectorAll('.opp-value');
+  oppValues.forEach(el => {
+    const key = {conservative:'c', expected:'e', ambitious:'a'}[scenario];
+    const val = parseFloat(el.getAttribute(`data-${key}`));
+    if (!isNaN(val)) el.textContent = fmtMoney(val);
+  });
+  
+  // 5. Update bubble chart sizes based on selected scenario
+  if (window._quadrantInstance && data.opportunities.length > 0) {
+    const chart = window._quadrantInstance;
+    const dataset = chart.data.datasets[0];
+    data.opportunities.forEach((opp, idx) => {
+      if (dataset.data[idx]) {
+        dataset.data[idx].r = Math.max(8, Math.min(25, opp.scenarios[scenario] / 100000000 * 2 + 6));
+      }
+    });
+    chart.update('none');
+  }
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+
+// ── SAP 솔루션 매핑 매트릭스 ──
+// X축: 적용 가능성 (1~5), Y축: oppType 기반 우선순위 구분
+// 버블 크기: 예상 가치
+function renderSolutionMatrix(opportunities) {
+  if (!opportunities || opportunities.length === 0)
+    return '<p style="font-size:12px;color:var(--text-light);">선택된 과제가 없습니다.</p>';
+
+  const typeOrder = {quickwin:0, strategic:1, incremental:2, monitor:3};
+  const typeLabel = {quickwin:'Quick Win', strategic:'전략적', incremental:'점진적', monitor:'모니터링'};
+  const typeColor = {quickwin:'#188918', strategic:'#0070F2', incremental:'#E76500', monitor:'#aaa'};
+
+  const sorted = [...opportunities].sort((a,b) => (typeOrder[a.oppType]||3)-(typeOrder[b.oppType]||3));
+
+  const rows = sorted.map((opp, i) => {
+    const pp = PAIN_POINTS.find(p => p.id === opp.id) || opp;
+    const ap = pp.applicability || 3;
+    const dots = '●'.repeat(ap) + '○'.repeat(5-ap);
+    const color = typeColor[opp.oppType] || '#aaa';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:6px 8px;font-size:11px;font-weight:500;max-width:140px;">${opp.text}</td>
+      <td style="padding:6px 8px;font-size:10px;color:${color};white-space:nowrap;">${typeLabel[opp.oppType]||''}</td>
+      <td style="padding:6px 8px;font-size:10px;color:var(--navy);max-width:130px;">${pp.sapSolution||'-'}</td>
+      <td style="padding:6px 8px;font-size:12px;color:${ap>=4?'#188918':ap>=3?'#E76500':'#aaa'};letter-spacing:1px;">${dots}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead><tr style="background:var(--bg);border-bottom:2px solid var(--border);">
+        <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--text-light);">Pain Point</th>
+        <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--text-light);">우선순위</th>
+        <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--text-light);">SAP 솔루션</th>
+        <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--text-light);">적용 가능성</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--text-light);margin-top:6px;">●●●●● 매우 높음 / ●●●○○ 보통 / ●○○○○ 검토 필요</div>
+  </div>`;
+}
+
+let radarInstance = null;
+function renderRadar(scores, benchInfo) {
+  const ctx = document.getElementById('radarChart')?.getContext('2d');
+  if (!ctx) return;
+  if (radarInstance) radarInstance.destroy();
+  
+  const labels = DOMAINS.map(d => DOMAIN_LABELS[d].split('(')[0].trim());
+  const values = DOMAINS.map(d => scores[d]);
+  // Reference line at 4.0 (Best-in-Class aspirational)
+  const reference = DOMAINS.map(() => 4.0);
+  
+  radarInstance = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [
+        {label:'현재 수준',data:values,backgroundColor:'rgba(0,112,242,0.2)',borderColor:'#0070F2',borderWidth:2,pointRadius:4},
+        {label:'최고 수준 참조',data:reference,backgroundColor:'rgba(76,177,255,0.05)',borderColor:'#4CB1FF',borderWidth:1,borderDash:[5,5],pointRadius:2}
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      scales:{r:{beginAtZero:true,max:5,ticks:{stepSize:1}}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}
+    }
+  });
+}
+
+// ============================================================
+// 4-QUADRANT PRIORITY MAP CHART
+// X-axis: Feasibility (system-estimated from maturity)
+// Y-axis: Impact Score (Impact × Urgency)
+// Bubble size: Estimated value
+// Color: Quick Win (green), Strategic (blue), Incremental (orange), Monitor (red)
+// ============================================================
+let quadrantInstance = null;
+function renderQuadrantChart(opportunities) {
+  const ctx = document.getElementById('quadrantChart')?.getContext('2d');
+  if (!ctx || opportunities.length === 0) return;
+  if (quadrantInstance) quadrantInstance.destroy();
+
+  const colorMap = {quickwin:'#188918', strategic:'#0070F2', incremental:'#E76500', monitor:'#999'};
+
+  const dataPoints = opportunities.map((opp) => ({
+    x: opp.feasibility,
+    y: opp.rating.impact * opp.rating.urgency / 5,
+    r: Math.max(9, Math.min(22, opp.scenarios.expected / 100000000 * 2 + 7)),
+    fullLabel: opp.text,
+    sapSol: (PAIN_POINTS.find(p=>p.id===opp.id)||{}).sapSolution || '',
+    color: colorMap[opp.oppType] || '#999'
+  }));
+
+  quadrantInstance = new Chart(ctx, {
+    type: 'bubble',
+    data: {
+      datasets: [{
+        label: '기회',
+        data: dataPoints,
+        backgroundColor: dataPoints.map(p => p.color + 'bb'),
+        borderColor: dataPoints.map(p => p.color),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      scales: {
+        x: {
+          title: { display: true, text: '← 실행 어려움 (Strategic)          실행 쉬움 (Quick Win) →', font: {size:10}, color:'#556B82' },
+          min: 0.5, max: 5.5, ticks: { display: false },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          title: { display: true, text: '↑ 사업 영향도 높음          사업 영향도 낮음 ↓', font: {size:10}, color:'#556B82' },
+          min: 0.5, max: 5.5, ticks: { display: false },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const d = dataPoints[ctx.dataIndex];
+              return [d.fullLabel, d.sapSol ? `→ ${d.sapSol}` : ''];
+            }
+          }
+        }
+      }
+    },
+    plugins: [{
+      id: 'quadrantBg',
+      beforeDraw(chart) {
+        const {ctx: c, chartArea: a} = chart;
+        if (!a) return;
+        const mx = (a.left + a.right) / 2;
+        const my = (a.top + a.bottom) / 2;
+        c.save();
+        // 배경 사분면 색
+        const quads = [
+          {x:mx,   y:a.top,  w:a.right-mx,  h:my-a.top,    color:'rgba(24,137,24,0.07)'},  // TR Quick Win
+          {x:a.left,y:a.top, w:mx-a.left,   h:my-a.top,    color:'rgba(0,112,242,0.07)'},  // TL Strategic
+          {x:mx,   y:my,     w:a.right-mx,  h:a.bottom-my, color:'rgba(231,101,0,0.05)'},  // BR Incremental
+          {x:a.left,y:my,    w:mx-a.left,   h:a.bottom-my, color:'rgba(0,0,0,0.03)'},      // BL Monitor
+        ];
+        quads.forEach(q => { c.fillStyle=q.color; c.fillRect(q.x,q.y,q.w,q.h); });
+        // 구분선 (실선)
+        c.strokeStyle = 'rgba(0,0,0,0.18)';
+        c.lineWidth = 1.5;
+        c.setLineDash([]);
+        c.beginPath();
+        c.moveTo(mx, a.top); c.lineTo(mx, a.bottom);
+        c.moveTo(a.left, my); c.lineTo(a.right, my);
+        c.stroke();
+        // 라벨
+        const labels = [
+          {x:(mx+a.right)/2, y:a.top+14,    text:'⚡ Quick Win',     color:'#188918'},
+          {x:(a.left+mx)/2,  y:a.top+14,    text:'🎯 전략적 이니셔티브', color:'#0070F2'},
+          {x:(mx+a.right)/2, y:a.bottom-6,  text:'🔄 점진적 개선',    color:'#E76500'},
+          {x:(a.left+mx)/2,  y:a.bottom-6,  text:'👁 모니터링',       color:'#999'},
+        ];
+        c.font = 'bold 10px "72", sans-serif';
+        labels.forEach(l => {
+          c.fillStyle = l.color; c.textAlign = 'center';
+          c.fillText(l.text, l.x, l.y);
+        });
+        c.restore();
+      }
+    }]
+  });
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function formatNumber(num) {
+  const eok = num / 100000000;
+  if (eok >= 10000) return (eok/10000).toFixed(1)+'조원';
+  if (eok >= 1) return eok.toFixed(0)+'억원';
+  return (num/10000).toFixed(0)+'만원';
+}
+
+// ============================================================
+// ADMIN UNLOCK (URL param ?mode=full or Ctrl+Shift+U)
+// ============================================================
+function isUnlocked() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('mode') === 'full' || document.body.classList.contains('unlocked');
+}
+
+function toggleUnlock() {
+  document.body.classList.toggle('unlocked');
+}
+
+function checkUnlockOnLoad() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === 'full') {
+    document.body.classList.add('unlocked');
+  }
+}
+
+// Keyboard shortcut: Ctrl+Shift+U
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+    e.preventDefault();
+    toggleUnlock();
+  }
+});
+
+// Initialize
+checkUnlockOnLoad();
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
