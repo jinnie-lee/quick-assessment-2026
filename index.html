@@ -2086,7 +2086,7 @@ async function dartFetch(endpoint, params) {
   throw new Error('모든 프록시 시도 실패');
 }
 
-// Step 1: Search company — 내장 목록 우선, 없으면 corp_code 직접 조회
+// Step 1: Search company — 내장 목록 → CF Worker /corp-search → 공개 프록시 순
 async function dartSearchCompany(corpName) {
   // 1) 내장 목록에서 먼저 검색 (빠르고 정확)
   const localMatches = DART_COMPANIES.filter(c =>
@@ -2101,46 +2101,110 @@ async function dartSearchCompany(corpName) {
     }));
   }
 
-  // 2) 내장 목록에 없으면 DART API 직접 검색
-  // Worker가 corp_name 한글 파라미터를 제대로 전달하지 않으므로
-  // 검색 전용으로는 DART URL을 직접 corsproxy로 호출
-  const dartSearchUrl = `https://opendart.fss.or.kr/api/list.json?crtfc_key=${DART_API_KEY}&corp_name=${encodeURIComponent(corpName)}&page_count=10&last_reprt_at=Y&pblntf_ty=A`;
-
-  let data = null;
-  const searchProxies = [
-    `${DART_PROXY_PUBLIC}${encodeURIComponent(dartSearchUrl)}`,
-    `${DART_PROXY_FALLBACK}${encodeURIComponent(dartSearchUrl)}`,
-  ];
-  for (const url of searchProxies) {
+  // 2) CF Worker /corp-search 엔드포인트
+  //    Worker가 DART 전체 기업 목록(corpCode.xml)을 KV 캐싱 후 이름으로 검색
+  if (DART_PROXY_CF) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const url = `${DART_PROXY_CF}corp-search?q=${encodeURIComponent(corpName)}&crtfc_key=${DART_API_KEY}`;
       const resp = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
       clearTimeout(timer);
-      if (resp.ok) { data = await resp.json(); if (data && data.status) break; }
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === '000' && data.list && data.list.length > 0) {
+          return data.list.map(c => ({
+            corp_code: c.corp_code,
+            corp_name: c.corp_name,
+            stock_code: c.stock_code || ''
+          }));
+        }
+        if (data.status === '000' && data.total === 0) throw new Error('NO_RESULT');
+      }
+    } catch(e) {
+      if (e.message === 'NO_RESULT') throw e;
+      console.warn('CF corp-search 실패, 공개 프록시로 fallback:', e.message);
+    }
+  }
+
+  // 3) 공개 프록시 fallback — DART corpCode.xml ZIP을 직접 파싱
+  //    (Worker 없이도 동작하도록, 단 불안정할 수 있음)
+  const zipUrl = `https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${DART_API_KEY}`;
+  const proxies = [
+    `${DART_PROXY_PUBLIC}${encodeURIComponent(zipUrl)}`,
+    `${DART_PROXY_FALLBACK}${encodeURIComponent(zipUrl)}`
+  ];
+  for (const proxyUrl of proxies) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const resp = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!resp.ok) continue;
+      const buf = await resp.arrayBuffer();
+      const companies = await parseCorpCodeZip(buf, corpName);
+      if (companies.length > 0) return companies;
     } catch(e) { continue; }
   }
 
-  if (!data || data.status === '013') throw new Error('NO_RESULT');
-  if (data.status !== '000') throw new Error(data.message || 'DART API 오류');
+  throw new Error('NO_RESULT');
+}
 
-  // 회사명이 일치하는 것만 추출 (중복 corp_code 제거)
-  const seen = new Set();
-  const companies = [];
-  for (const item of (data.list || [])) {
-    if (!seen.has(item.corp_code) && item.corp_name.includes(corpName)) {
-      seen.add(item.corp_code);
-      companies.push({
-        corp_code: item.corp_code,
-        corp_name: item.corp_name,
-        stock_code: item.stock_code || '',
-        report: item.report_nm,
-        date: item.rcept_dt
-      });
+// corpCode.xml ZIP을 브라우저에서 직접 파싱 (fallback용)
+async function parseCorpCodeZip(arrayBuffer, searchName) {
+  try {
+    const u8 = new Uint8Array(arrayBuffer);
+    const dv = new DataView(arrayBuffer);
+    let xmlBuf = null;
+
+    // ZIP Local File Header 찾기
+    for (let i = 0; i < u8.length - 4; i++) {
+      if (dv.getUint32(i, true) !== 0x04034b50) continue;
+      const method   = dv.getUint16(i + 8,  true);
+      const compSize = dv.getUint32(i + 18, true);
+      const fnLen    = dv.getUint16(i + 26, true);
+      const extLen   = dv.getUint16(i + 28, true);
+      const start    = i + 30 + fnLen + extLen;
+      const compressed = u8.slice(start, start + compSize);
+
+      if (method === 0) {
+        xmlBuf = compressed.buffer;
+      } else if (method === 8) {
+        const ds = new DecompressionStream('deflate-raw');
+        const w  = ds.writable.getWriter();
+        const r  = ds.readable.getReader();
+        w.write(compressed); w.close();
+        const chunks = [];
+        while (true) { const {done, value} = await r.read(); if (done) break; chunks.push(value); }
+        const total = chunks.reduce((a, c) => a + c.length, 0);
+        const out = new Uint8Array(total); let off = 0;
+        for (const c of chunks) { out.set(c, off); off += c.length; }
+        xmlBuf = out.buffer;
+      }
+      break;
     }
+    if (!xmlBuf) return [];
+
+    const xml = new TextDecoder('utf-8').decode(xmlBuf);
+    const reBlock = /<list>([\s\S]*?)<\/list>/g;
+    const getF = (block, tag) => { const m = block.match(new RegExp(`<${tag}>([^<]*)</${tag}>`)); return m ? m[1].trim() : ''; };
+    const results = []; let m;
+    while ((m = reBlock.exec(xml)) !== null) {
+      const name = getF(m[1], 'corp_name');
+      if (name.includes(searchName)) {
+        results.push({
+          corp_code: getF(m[1], 'corp_code'),
+          corp_name: name,
+          stock_code: getF(m[1], 'stock_code')
+        });
+        if (results.length >= 20) break;
+      }
+    }
+    return results;
+  } catch(e) {
+    console.warn('ZIP 파싱 실패:', e.message);
+    return [];
   }
-  if (companies.length === 0) throw new Error('NO_RESULT');
-  return companies;
 }
 
 // Step 2: Get company overview (includes industry, stock code)
