@@ -3301,10 +3301,7 @@ function renderResults(data) {
     window._quadrantInstance = quadrantInstance;
   }, 100);
 
-  // Auto-save to Google Sheets (non-blocking)
-  setTimeout(() => {
-    try { autoSaveToSheets(); } catch(e) { console.warn('Auto-save to Sheets failed:', e); }
-  }, 500);
+  // 상담신청 버튼 클릭 시에만 저장 (자동저장 비활성화)
 }
 
 // ============================================================
@@ -3560,44 +3557,9 @@ body{font-family:'72','Noto Sans KR',sans-serif;background:white;color:#1D2D3E;w
 }
 
 // ============================================================
-// AUTO-SAVE: 결과 생성 시 자동으로 Google Sheets에 전송
+// AUTO-SAVE: 비활성화 — 상담신청 버튼 클릭 시에만 저장됩니다
 // ============================================================
-async function autoSaveToSheets() {
-  if (!GOOGLE_SHEETS_URL) {
-    console.warn('Google Sheets URL not configured. Skipping auto-save.');
-    return;
-  }
-  
-  const allData = collectAllData();
-  if (!allData) return;
-  
-  // Flatten all data into a single row
-  const flatRow = {
-    timestamp: new Date().toISOString(),
-    ...allData.basicInfo,
-    ...allData.financialData,
-    ...allData.kpiData,
-    ...allData.maturityData,
-    ...allData.resultsData,
-    erp_system: document.getElementById('inp_erp')?.value || '',
-    cloud_level: document.getElementById('inp_cloud')?.value || '',
-    pain_points: allData.painPointData.selected_pain_points,
-    pain_point_count: allData.painPointData.pain_point_count,
-    opportunities: allData.oppData.map(o => `${o.rank}.${o.text}(${o.type})`).join(' | '),
-    consent_agreed: 'Y',
-    source: 'auto_save'
-  };
-  
-  try {
-    await fetch(GOOGLE_SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify(flatRow)
-    });
-    console.log('Auto-save to Google Sheets completed.');
-  } catch (e) {
-    console.warn('Auto-save to Sheets failed:', e.message);
-  }
-}
+async function autoSaveToSheets() { return; }
 
 
 
@@ -3656,7 +3618,23 @@ function showExportStatus(type, message) {
 }
 
 // ============================================================
-// CONSULTATION SUBMISSION (Placeholder)
+// HELPERS: 셀렉트박스 텍스트 & 성숙도 답변 포맷
+// ============================================================
+function getSelectorText(id) {
+  const el = document.getElementById(id);
+  if (!el || !el.value) return '미선택';
+  return el.options[el.selectedIndex]?.text || el.value;
+}
+
+function getMaturityAnswerText(qId) {
+  const val = maturityAnswers[qId];
+  if (!val) return '';
+  const q = MATURITY_QS.find(q => q.id === qId);
+  return `${val}점 - ${q?.a?.[val-1] || ''}`;
+}
+
+// ============================================================
+// CONSULTATION SUBMISSION — 상담신청 시 전체 데이터 Google Sheets 전송
 // ============================================================
 async function submitConsultation() {
   const name    = document.getElementById('ctaName')?.value?.trim();
@@ -3673,7 +3651,7 @@ async function submitConsultation() {
   }
 
   if (!GOOGLE_SHEETS_URL) {
-    showToast('Google Sheets 연동 URL이 설정되지 않았습니다.\nGOOGLE_SHEETS_URL 변수에 Apps Script 웹앱 URL을 입력해 주세요.', 'info', 6000);
+    showToast('Google Sheets 연동 URL이 설정되지 않았습니다.', 'info', 6000);
     return;
   }
 
@@ -3683,68 +3661,162 @@ async function submitConsultation() {
   try {
     // ── 1. 블러 해제 ──
     document.body.classList.add('unlocked');
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
 
-    // ── 2. 결과 페이지 이미지 캡처 ──
+    // ── 2. 전체 결과 페이지 풀스크린 캡처 ──
     let imageBase64 = '';
     try {
       const resultEl = document.getElementById('resultsContainer');
       const canvas = await html2canvas(resultEl, {
-        scale: 1.5, useCORS: true, allowTaint: true,
-        backgroundColor: '#F8F9FA', logging: false, windowWidth: 1200
+        scale: 1.2, useCORS: true, allowTaint: true,
+        backgroundColor: '#F8F9FA', logging: false,
+        height: resultEl.scrollHeight,
+        windowHeight: resultEl.scrollHeight + 200,
       });
-      imageBase64 = canvas.toDataURL('image/png').split(',')[1];
+      imageBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
     } catch (imgErr) {
-      console.warn('Image capture failed (non-blocking):', imgErr);
+      console.warn('Screenshot failed (non-blocking):', imgErr);
     }
 
-    // ── 3. 전송할 데이터 수집 ──
-    const allData = collectAllData() || {};
-    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    const fileName = `Quick_${(company||'unknown').replace(/[^가-힣a-zA-Z0-9]/g,'')}_${(name||'unknown').replace(/[^가-힣a-zA-Z0-9]/g,'')}_${dateStr}`;
+    // ── 3. 공통 데이터 ──
+    const data = window._resultData || {};
+    const resp = getRespondentInfo();
+    const fmtEok = (n) => n ? `${Math.round(n / 100000000)}억원` : '-';
+    const timestamp = new Date().toLocaleString('ko-KR', {
+      timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
 
+    // ── 4. 성숙도 개별 문항 (24개 전체) ──
+    const maturityFields = {};
+    MATURITY_QS.forEach(q => { maturityFields[`[${q.id}]`] = getMaturityAnswerText(q.id); });
+
+    // ── 5. 핵심 과제 선택 (최대 5개 별도 컬럼) ──
+    const ppArray = [...selectedPPs].map(ppId => {
+      const pp = PAIN_POINTS.find(p => p.id === ppId);
+      return pp ? `${pp.text} (${DOMAIN_LABELS[pp.domain]?.split('(')[0]?.trim()})` : ppId;
+    });
+    const ppFields = {};
+    for (let i = 0; i < 5; i++) { ppFields[`선택과제_${i + 1}`] = ppArray[i] || ''; }
+
+    // ── 6. 추천 과제 OUTPUT (상위 5개) ──
+    const typeKo = { quickwin: 'Quick Win', strategic: '전략적', incremental: '점진적', monitor: '모니터링' };
+    const oppFields = {};
+    for (let i = 0; i < 5; i++) {
+      const opp = (data.opportunities || [])[i];
+      oppFields[`추천과제_${i + 1}`] = opp
+        ? `${opp.text} | ${opp.sapSolution || '-'} | ${typeKo[opp.oppType] || ''} | ${fmtEok(opp.scenarios?.expected)}/년`
+        : '';
+    }
+
+    // ── 7. 준비도 평가 OUTPUT ──
+    const readinessData = data.domainScores
+      ? getReadinessAssessment(data.domainScores, data.erpSystem || '', data.cloudLevel || '', data.plantsCount || 1, data.avgMaturity)
+      : null;
+    const rdFields = {};
+    if (readinessData) {
+      readinessData.dimensions.forEach(d => {
+        rdFields[`준비도_${d.name}`] = `${d.grade}등급 - ${d.label}`;
+      });
+      (readinessData.risks || []).slice(0, 3).forEach((r, i) => {
+        const lvl = r.level === 'high' ? '높음' : r.level === 'medium' ? '중간' : '낮음';
+        rdFields[`위험요소_${i + 1}`] = `[${lvl}] ${r.text}`;
+      });
+    }
+
+    // ── 8. 최종 페이로드 조립 ──
     const payload = {
-      timestamp:        new Date().toLocaleString('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}),
-      cta_name:         name,
-      cta_company:      company,
-      cta_email:        email,
-      cta_phone:        phone,
-      cta_interest:     interest,
-      ...( allData.basicInfo    || {} ),
-      ...( allData.financialData|| {} ),
-      ...( allData.kpiData      || {} ),
-      ...( allData.maturityData || {} ),
-      ...( allData.resultsData  || {} ),
-      pain_points:      (allData.painPointData || {}).selected_pain_points || '',
-      pain_point_count: (allData.painPointData || {}).pain_point_count || 0,
-      opportunities:    (allData.oppData || []).map(o =>
-        `${o.rank}.${o.text}(${o.type},${o.value_expected ? Math.round(o.value_expected/100000000)+'억' : '-'})`
-      ).join(' | '),
-      file_name:        fileName,
-      image_base64:     imageBase64,
+      // A. 진단 일시
+      '진단일시': timestamp,
+
+      // B. 응답자 기본 정보
+      '담당자명': resp.name,
+      '직급': resp.title,
+      '부서': resp.dept,
+      '이메일_응답자': resp.email,
+      '회사명_응답자': resp.company,
+
+      // C. 상담 신청 정보
+      '상담_이름': name,
+      '상담_이메일': email,
+      '상담_연락처': phone,
+      '상담_회사명': company,
+      '상담_관심영역': interest,
+
+      // D. 회사 및 비즈니스 정보 (고객 INPUT)
+      '산업분류': data.industry || '',
+      '기업규모': getSelectorText('inp_size'),
+      '매출규모': getSelectorText('inp_revenue'),
+      '공장수': getSelectorText('inp_plants'),
+      '비즈니스_우선순위': getSelectorText('inp_priority'),
+      '진단_관점': getSelectorText('inp_horizon'),
+      'ERP_시스템': getSelectorText('inp_erp'),
+      '클라우드_활용수준': getSelectorText('inp_cloud'),
+
+      // E. 운영 KPI 현재값 (고객 선택 INPUT)
+      'KPI_OEE': getSelectorText('kpi_oee'),
+      'KPI_비계획다운타임': getSelectorText('kpi_downtime'),
+      'KPI_스크랩률': getSelectorText('kpi_scrap'),
+      'KPI_재고일수': getSelectorText('kpi_inventory'),
+      'KPI_납기준수율': getSelectorText('kpi_otd'),
+      'KPI_사이클타임': getSelectorText('kpi_cycletime'),
+
+      // F. 성숙도 개별 문항 응답 (고객 INPUT)
+      ...maturityFields,
+
+      // G. 성숙도 도메인 점수 (OUTPUT)
+      '성숙도_디지털기반': data.domainScores?.Foundation?.toFixed(2) || '',
+      '성숙도_제품개발': data.domainScores?.Product?.toFixed(2) || '',
+      '성숙도_생산제조': data.domainScores?.Manufacturing?.toFixed(2) || '',
+      '성숙도_설비자산': data.domainScores?.Asset?.toFixed(2) || '',
+      '성숙도_지속가능성': data.domainScores?.Sustainability?.toFixed(2) || '',
+      '성숙도_평균': data.avgMaturity?.toFixed(2) || '',
+
+      // H. 핵심 과제 선택 (고객 INPUT)
+      '선택과제수': selectedPPs.size,
+      ...ppFields,
+
+      // I. 가치 추정 OUTPUT
+      '가치추정_보수적': fmtEok(data.totalScenarios?.conservative),
+      '가치추정_기대치': fmtEok(data.totalScenarios?.expected),
+      '가치추정_낙관적': fmtEok(data.totalScenarios?.ambitious),
+      '신뢰도': data.overallConfidence || '',
+      '신뢰도_이유': data.confidenceReason || '',
+
+      // J. 추천 과제 OUTPUT
+      ...oppFields,
+
+      // K. AI 전환 준비도 OUTPUT
+      '준비도_종합등급': readinessData?.overallGrade || '',
+      ...rdFields,
+
+      // L. 벤치마크 출처
+      '벤치마크_소스': data.benchInfo?.source || '',
+
+      // M. 결과 전체화면 스크린샷 → Apps Script에서 Drive URL로 변환
+      'image_base64': imageBase64,
     };
 
-    // ── 4. Apps Script로 POST ──
-    const response = await fetch(GOOGLE_SHEETS_URL, {
+    // ── 9. POST 전송 ──
+    await fetch(GOOGLE_SHEETS_URL, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
 
-    // ── 4. 완료 처리 ──
+    // ── 10. 완료 UI ──
     const confirmEl = document.getElementById('ctaConfirm');
     if (confirmEl) {
       confirmEl.style.display = 'block';
-      confirmEl.innerHTML = `<strong>${name}님</strong>, 신청이 완료되었습니다. 전체 분석 결과가 공개되었습니다.<br>SAP 담당자가 상세 진단 결과와 함께 곧 연락드리겠습니다.`;
+      confirmEl.innerHTML = `<strong>${name}님</strong>, 신청이 완료되었습니다. 전체 분석 결과가 공개되었습니다.<br>SAP 담당자가 1~2 영업일 내 연락드리겠습니다.`;
     }
     if (btn) { btn.textContent = '신청 완료'; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
     showToast('상담 신청이 완료되었습니다. 전체 결과가 공개됩니다.', 'success', 4000);
 
   } catch (e) {
     console.error('submitConsultation error:', e);
-    // 네트워크 오류 시에도 unlock 유지 (사용자 경험 우선)
     document.body.classList.add('unlocked');
     const confirmEl = document.getElementById('ctaConfirm');
-    if (confirmEl) { confirmEl.style.display = 'block'; confirmEl.textContent = '신청이 처리되었습니다. 결과가 공개됩니다.'; }
+    if (confirmEl) { confirmEl.style.display = 'block'; confirmEl.textContent = '신청이 처리되었습니다. SAP 담당자가 연락드리겠습니다.'; }
     if (btn) { btn.textContent = '신청 완료'; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
     showToast('상담 정보가 저장되었습니다. 전체 결과가 공개됩니다.', 'success', 4000);
   }
