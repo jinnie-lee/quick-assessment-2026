@@ -452,7 +452,9 @@ body.unlocked .unlock-badge{display:flex;}
 <div class="form-row">
 <div class="form-group"><label class="form-label">현재 ERP 시스템 * <span class="tooltip-icon" data-tip="주 생산관리에 사용 중인 ERP. 복수 사용 시 주 시스템 기준">?</span></label>
 <select class="form-select" id="inp_erp"><option value="">선택</option>
-<option value="sap_s4">SAP S/4HANA</option>
+<option value="sap_s4_public">SAP S/4HANA Public Cloud</option>
+<option value="sap_s4_private">SAP S/4HANA Private Cloud (PCE)</option>
+<option value="sap_s4_onprem">SAP S/4HANA On-Premise</option>
 <option value="sap_ecc">SAP ECC (ERP 6.0)</option>
 <option value="oracle">Oracle ERP / Cloud</option>
 <option value="ms_d365">Microsoft Dynamics 365</option>
@@ -947,8 +949,10 @@ function getCostOfInaction(totalScenarios, avgMaturity, industry) {
 function getExecutionRoadmap(opportunities, domainScores, erpSystem, cloudLevel) {
   // ERP readiness multiplier
   const erpReadiness = {
-    'sap_s4': {label:'SAP S/4HANA', factor:1.0, phase1Boost:true},
-    'sap_ecc': {label:'SAP ECC', factor:0.85, phase1Boost:true},
+    'sap_s4_public': {label:'SAP S/4HANA Public Cloud', factor:1.0, phase1Boost:true},
+    'sap_s4_private': {label:'SAP S/4HANA Private Cloud', factor:1.0, phase1Boost:true},
+    'sap_s4_onprem': {label:'SAP S/4HANA On-Premise', factor:0.9, phase1Boost:true},
+    'sap_ecc': {label:'SAP ECC', factor:0.8, phase1Boost:true},
     'oracle': {label:'Oracle ERP', factor:0.7, phase1Boost:false},
     'ms_d365': {label:'Dynamics 365', factor:0.7, phase1Boost:false},
     'domestic': {label:'국산 ERP', factor:0.5, phase1Boost:false},
@@ -978,6 +982,7 @@ function getExecutionRoadmap(opportunities, domainScores, erpSystem, cloudLevel)
       text: opp.text,
       domain: opp.domain,
       sapSolution: opp.sapSolution,
+      sapSolutions: opp.sapSolutions,
       value: opp.scenarios.expected,
       feasibility: adjustedFeasibility
     };
@@ -1020,12 +1025,12 @@ function getReadinessAssessment(domainScores, erpSystem, cloudLevel, plantsCount
   else { dataGrade = 'D'; dataLabel = '기초 데이터 체계 수립 필요'; }
   dimensions.push({
     name: '데이터 준비도', grade: dataGrade, score: dataScore, label: dataLabel,
-    detail: dataScore >= 3 ? '통합 데이터 기반이 있어 AI 모델 학습 가능' : '데이터 사일로 해소 및 품질 개선이 선행되어야 합니다',
+    detail: dataScore >= 3 ? '통합 데이터 기반이 있어 SAP IBP, Digital Manufacturing 등의 AI 기능 즉시 활용 가능' : 'S/4HANA MDG(Master Data Governance) 기반 데이터 품질 정비와 통합이 선행되어야 합니다',
     icon: '📊'
   });
   
   // 2. Technology/IT Readiness (from ERP + Cloud)
-  const erpScores = {'sap_s4':5,'sap_ecc':4,'oracle':3.5,'ms_d365':3.5,'domestic':2.5,'custom':2,'none':1};
+  const erpScores = {'sap_s4_public':5,'sap_s4_private':5,'sap_s4_onprem':4.5,'sap_ecc':3.5,'oracle':3,'ms_d365':3,'domestic':2.5,'custom':2,'none':1};
   const cloudScores = {'cloud_first':5,'hybrid':4,'partial':2.5,'none':1.5};
   const techScore = ((erpScores[erpSystem]||2.5) * 0.6 + (cloudScores[cloudLevel]||2.5) * 0.4);
   let techGrade, techLabel;
@@ -1035,7 +1040,7 @@ function getReadinessAssessment(domainScores, erpSystem, cloudLevel, plantsCount
   else { techGrade = 'D'; techLabel = 'IT 인프라 구축 선행 필요'; }
   dimensions.push({
     name: '기술 인프라', grade: techGrade, score: techScore, label: techLabel,
-    detail: techScore >= 3 ? '현재 IT 환경에서 AI 솔루션 배포 가능' : 'ERP 현대화 또는 클라우드 전환을 병행해야 합니다',
+    detail: techScore >= 3 ? 'SAP BTP 기반 AI 솔루션 배포 및 확장이 가능한 환경' : 'S/4HANA 전환 또는 클라우드 마이그레이션을 병행하여 AI 기반을 구축해야 합니다',
     icon: '🖥️'
   });
   
@@ -1048,7 +1053,7 @@ function getReadinessAssessment(domainScores, erpSystem, cloudLevel, plantsCount
   else { procGrade = 'D'; procLabel = '프로세스 정립 선행 필요'; }
   dimensions.push({
     name: '프로세스 성숙도', grade: procGrade, score: processScore, label: procLabel,
-    detail: processScore >= 3 ? 'AI가 기존 프로세스에 자연스럽게 통합 가능' : '프로세스 표준화 없이 AI를 도입하면 효과가 제한됩니다',
+    detail: processScore >= 3 ? 'Digital Manufacturing, IBP 등 솔루션이 기존 프로세스에 자연스럽게 통합 가능' : '프로세스 표준화(S/4HANA Best Practice 적용) 없이 AI를 도입하면 효과가 제한됩니다',
     icon: '⚙️'
   });
   
@@ -1075,14 +1080,107 @@ function getReadinessAssessment(domainScores, erpSystem, cloudLevel, plantsCount
   
   // Key risks
   const risks = [];
-  if (dataScore < 3) risks.push({level:'high', text:'데이터 사일로 및 품질 이슈로 AI 모델 정확도 저하 위험'});
-  if (techScore < 3) risks.push({level:'high', text:'레거시 IT 환경으로 인한 통합 지연 및 추가 비용 발생 가능'});
-  if (processScore < 2.5) risks.push({level:'medium', text:'비표준 프로세스로 인해 솔루션 커스터마이징 부담 증가'});
-  if (complexityScore < 3) risks.push({level:'medium', text:'다사업장 간 우선순위 조율 및 변화관리 리더십 필요'});
-  if (erpSystem === 'none' || erpSystem === 'custom') risks.push({level:'high', text:'ERP 기반 부재로 AI 적용 전 디지털 기반 구축 선행 필요'});
-  if (risks.length === 0) risks.push({level:'low', text:'전반적 준비도 양호. 파일럿 후 빠른 확산 가능'});
+  if (dataScore < 3) risks.push({level:'high', text:'데이터 사일로 및 품질 이슈로 AI 모델 정확도 저하 위험 — S/4HANA MDG 기반 데이터 거버넌스 수립 권장'});
+  if (techScore < 3) risks.push({level:'high', text:'레거시 IT 환경으로 인한 통합 지연 — S/4HANA 전환 또는 SAP BTP 기반 하이브리드 접근 검토 필요'});
+  if (processScore < 2.5) risks.push({level:'medium', text:'비표준 프로세스로 인해 솔루션 커스터마이징 부담 증가 — SAP Best Practice 기반 프로세스 표준화 선행 권장'});
+  if (complexityScore < 3) risks.push({level:'medium', text:'다사업장 간 우선순위 조율 및 변화관리 리더십 필요 — 파일럿 사업장 선정 후 단계적 롤아웃 전략 수립'});
+  if (erpSystem === 'none' || erpSystem === 'custom') risks.push({level:'high', text:'ERP 기반 부재로 AI 적용 전 S/4HANA 등 디지털 기반 구축 선행 필요'});
+  if (risks.length === 0) risks.push({level:'low', text:'전반적 준비도 양호. SAP S/4HANA 기반 파일럿 후 빠른 전사 확산 가능'});
   
   return { dimensions, overallScore, overallGrade, risks };
+}
+
+// ============================================================
+// ERP STATUS ANALYSIS - Dynamic S/4HANA recommendation
+// ============================================================
+function getERPAnalysis(erpSystem, cloudLevel, opportunities, companySize) {
+  const erpLabels = {
+    'sap_s4_public':'SAP S/4HANA Public Cloud',
+    'sap_s4_private':'SAP S/4HANA Private Cloud (PCE)',
+    'sap_s4_onprem':'SAP S/4HANA On-Premise',
+    'sap_ecc':'SAP ECC (ERP 6.0)',
+    'oracle':'Oracle ERP','ms_d365':'Microsoft Dynamics 365',
+    'domestic':'국산 ERP','custom':'자체 개발 시스템','none':'ERP 미도입'
+  };
+  const currentLabel = erpLabels[erpSystem] || '미입력';
+
+  const usedSols = new Set();
+  (opportunities||[]).forEach(o => (o.sapSolutions||[]).forEach(s => usedSols.add(s)));
+
+  let icon, color, statusTitle, statusDesc, recTitle, recBody, urgency;
+
+  if (erpSystem === 'sap_s4_public') {
+    icon = '✓'; color = '#188918'; urgency = 'low';
+    statusTitle = '최적 환경';
+    statusDesc = 'SAP가 인프라·업그레이드·보안을 관리하며, 최신 AI 기능(Joule)이 분기별로 자동 적용되는 환경입니다.';
+    recTitle = '현재 환경에서 바로 솔루션을 확장하세요';
+    recBody = 'ERP 전환 없이 선택하신 과제에 해당하는 SAP 솔루션을 즉시 연동할 수 있습니다. Public Cloud의 분기별 자동 업데이트를 통해 최신 AI 기능을 지속적으로 활용하실 수 있습니다.';
+
+  } else if (erpSystem === 'sap_s4_private') {
+    icon = '✓'; color = '#188918'; urgency = 'low';
+    statusTitle = '최적 환경';
+    statusDesc = 'SAP가 인프라를 관리하며, 기업 고유 프로세스를 유지하면서 최신 기능을 활용할 수 있는 환경입니다.';
+    recTitle = '현재 환경에서 바로 솔루션을 확장하세요';
+    recBody = 'ERP 전환 없이 선택하신 과제에 해당하는 SAP 솔루션을 바로 연동할 수 있습니다. Private Cloud의 정기 업그레이드 주기에 맞춰 새로운 AI 기능을 적용하세요.';
+
+  } else if (erpSystem === 'sap_s4_onprem') {
+    icon = '↑'; color = '#0070F2'; urgency = 'medium';
+    statusTitle = '클라우드 전환 권장';
+    statusDesc = '현재 솔루션 연동은 가능하지만, 업그레이드와 인프라를 직접 관리해야 하며 최신 AI 기능(Joule 등)의 적용이 제한될 수 있습니다.';
+    recTitle = 'S/4HANA Private Cloud (PCE) 또는 Public Cloud로의 전환을 검토하세요';
+    recBody = 'Private Cloud(PCE)로 전환하면 기존 프로세스와 커스터마이징을 유지하면서도 SAP가 인프라와 업그레이드를 관리합니다. 표준 프로세스 중심이라면 Public Cloud도 좋은 선택입니다. 클라우드 전환 시 최신 AI 기능을 자동으로 제공받아, 선택하신 과제에 대한 솔루션 효과를 극대화할 수 있습니다.';
+
+  } else if (erpSystem === 'sap_ecc') {
+    icon = '⚠'; color = '#E76500'; urgency = 'high';
+    statusTitle = 'S/4HANA 전환 필요';
+    statusDesc = '2027년 표준 유지보수 종료가 예정되어 있어, S/4HANA 전환 계획이 시급합니다.';
+    recTitle = 'S/4HANA 전환과 솔루션 도입을 병행하세요';
+    recBody = 'ECC에서 S/4HANA로 전환하면서 선택하신 과제에 맞는 솔루션을 함께 도입하는 것이 가장 효율적입니다. 기존 커스터마이징과 애드온을 유지해야 한다면 Private Cloud(PCE)를, 표준 프로세스 기반으로 새롭게 시작하신다면 Public Cloud를 권장합니다. 전환 시 MRP Live, 임베디드 분석, Joule AI 등 최신 기능을 즉시 활용할 수 있습니다.';
+
+  } else if (erpSystem === 'oracle' || erpSystem === 'ms_d365') {
+    icon = '→'; color = '#0070F2'; urgency = 'medium';
+    statusTitle = 'SAP 전환 검토 권장';
+    statusDesc = `${currentLabel}을 운영 중입니다. SAP 개별 솔루션은 독립 도입이 가능하며, 장기적으로 S/4HANA 통합을 검토하시면 시너지가 극대화됩니다.`;
+    recTitle = '단기: 개별 솔루션 우선 도입 → 중장기: S/4HANA 전환 검토';
+    recBody = `IBP, Digital Manufacturing, APM 등은 기존 ${currentLabel}과 연동하여 독립적으로 도입할 수 있습니다. 중장기적으로 S/4HANA 기반으로 통합하시면, 전사 데이터 실시간 연동과 AI 활용 범위가 크게 확대됩니다. 전환 시에는 기존 프로세스 유지가 필요하다면 Private Cloud(PCE)를, 표준화 중심이라면 Public Cloud를 검토하세요.`;
+
+  } else if (erpSystem === 'domestic' || erpSystem === 'custom') {
+    icon = '→'; color = '#E76500'; urgency = 'high';
+    statusTitle = 'S/4HANA 전환 권장';
+    statusDesc = `${currentLabel}을 운영 중입니다. AI 기반 솔루션의 효과를 최대화하려면 S/4HANA 기반 구축을 권장합니다.`;
+    recTitle = 'S/4HANA 도입을 통한 디지털 기반 혁신';
+    recBody = '현재 시스템에서는 데이터 통합과 실시간 분석에 한계가 있습니다. 표준 프로세스 중심이라면 Public Cloud로 빠르게 시작하고, 기업 고유 프로세스가 많다면 Private Cloud(PCE)를 검토하세요. 가장 시급한 과제부터 파일럿으로 시작하여 단계적으로 확산하는 접근을 권장합니다.';
+
+  } else {
+    icon = '!'; color = '#CC1919'; urgency = 'high';
+    statusTitle = '디지털 기반 구축 필요';
+    statusDesc = 'ERP가 도입되지 않은 환경입니다. AI 솔루션 활용을 위해 먼저 체계적인 데이터 관리 기반이 필요합니다.';
+    recTitle = 'S/4HANA 도입으로 디지털 전환을 시작하세요';
+    recBody = 'ERP 없이 개별 솔루션만 도입하면 데이터 단절로 효과가 제한됩니다. S/4HANA를 핵심 기반으로 구축하면서, 가장 시급한 업무 영역부터 단계적으로 확장하는 전략을 권장합니다. 빠른 도입을 원하시면 Public Cloud를, 맞춤형 프로세스가 필요하시면 Private Cloud(PCE)를 검토하세요.';
+  }
+
+  const solConnMap = {
+    'IBP': '실시간 재고·주문 데이터 연동 → 수요 예측과 공급 계획의 정확도 향상',
+    'Digital Manufacturing': '생산 오더·BOM 실시간 전달 → 현장 실적 자동 반영',
+    'EWM': '재고 관리 실시간 동기화 → 입출고·재고 이동 자동화',
+    'TM': '출하 계획 연동 → 운송 일정·비용 최적화',
+    'APM': '설비 마스터 데이터 연동 → 예측 정비 결과를 정비 오더로 자동 전환',
+    'EAM': 'S/4HANA 내장 모듈 → 별도 연동 없이 바로 활용 가능',
+    'FSM': '서비스 오더 연동 → 현장 서비스 일정·부품·인력 통합 관리',
+    'IPD': 'BOM·라우팅 연동 → 설계 변경을 생산에 즉시 반영',
+    'Product Compliance': '자재·제품 마스터 연동 → 규제 준수 자동 검증',
+    'EHS EM': '생산·자산 데이터 연동 → 환경 배출량 자동 산출',
+    'EHS WS': '작업 오더 연동 → 안전 허가·위험 평가 프로세스 내재화',
+    'SFM': '구매·생산 데이터 연동 → 제품별 탄소발자국 자동 추적'
+  };
+  const solConnections = [];
+  usedSols.forEach(sol => {
+    if (sol !== 'S/4HANA' && solConnMap[sol]) {
+      solConnections.push({sol, desc: solConnMap[sol]});
+    }
+  });
+
+  return { icon, color, currentLabel, statusTitle, statusDesc, recTitle, recBody, solConnections, urgency };
 }
 
 // ============================================================
@@ -1375,29 +1473,53 @@ const MATURITY_QS = [
 // ============================================================
 const PAIN_POINTS = [
   {id:"PP01",text:"생산 계획 변경에 빠르게 대응하기 어렵다",domain:"Manufacturing",vd:"수요 예측 정확도 향상",kpi:"forecast",impact:"매출",
-   sapSolution:"SAP Integrated Business Planning",sapDesc:"실시간 제약 기반 계획 재최적화 및 수요 변동 시나리오 시뮬레이션",applicability:4},
+   sapSolutions:["IBP"],
+   sapDesc:"수요 변동을 AI로 미리 감지하고, 자재·설비·인력을 종합 고려한 최적 생산 계획을 자동으로 재수립합니다.",applicability:4},
   {id:"PP02",text:"설비 고장을 사전에 예측하기 어렵다",domain:"Asset",vd:"비계획 가동중단 감소",kpi:"downtime",impact:"매출",
-   sapSolution:"SAP Asset Performance Management",sapDesc:"IoT 센서 데이터 기반 고장 예측 및 AI 잔여수명(RUL) 산출",applicability:5},
+   sapSolutions:["APM","EAM"],
+   sapDesc:"센서 데이터를 AI가 분석하여 설비 고장을 사전에 예측하고, 최적 정비 시점을 자동으로 알려줍니다.",applicability:5},
   {id:"PP03",text:"품질 문제를 생산 후에야 발견한다",domain:"Manufacturing",vd:"스크랩 비용 절감",kpi:"scrap",impact:"매출원가",
-   sapSolution:"SAP Digital Manufacturing",sapDesc:"공정 중 실시간 SPC 모니터링 및 AI 기반 불량 원인 자동 분류",applicability:5},
+   sapSolutions:["Digital Manufacturing"],
+   sapDesc:"생산 중 품질 데이터를 실시간 모니터링하고, AI가 불량 발생 전에 이상 징후를 감지하여 즉시 대응합니다.",applicability:5},
   {id:"PP04",text:"제품/설계 변경의 영향을 추적하기 어렵다",domain:"Product",vd:"신제품 출시 기간 단축",kpi:"ttm",impact:"매출",
-   sapSolution:"SAP Integrated Product Development",sapDesc:"BOM-공정-설비 간 변경 영향 자동 추적 및 디지털 스레드 기반 연결",applicability:4},
+   sapSolutions:["IPD","Product Compliance"],
+   sapDesc:"설계 변경 시 영향받는 부품·공정·규제 항목을 자동으로 추적하고, 관련 부서에 즉시 알립니다.",applicability:4},
   {id:"PP05",text:"데이터가 여러 시스템에 분산되어 있다",domain:"Foundation",vd:"데이터 통합 비용 절감",kpi:"inventory",impact:"판관비",
-   sapSolution:"SAP Business Data Cloud",sapDesc:"이기종 시스템 데이터 가상 통합(Federation) 및 마스터 데이터 표준화",applicability:5},
+   sapSolutions:["S/4HANA"],
+   sapDesc:"전사 데이터를 하나의 통합 플랫폼에서 관리하여, 어디서든 실시간으로 정확한 정보를 조회할 수 있습니다.",applicability:5},
   {id:"PP06",text:"재고가 많지만 필요한 자재는 부족하다",domain:"Manufacturing",vd:"재고일수 감소",kpi:"inventory",impact:"운전자본",
-   sapSolution:"SAP Integrated Business Planning",sapDesc:"다계층 재고 최적화 및 AI 수요 감지(Demand Sensing) 기반 안전재고 동적 조정",applicability:4},
+   sapSolutions:["IBP","EWM"],
+   sapDesc:"AI가 수요를 정밀 예측하여 적정 재고를 자동 산출하고, 창고 내 재고 현황을 실시간으로 파악합니다.",applicability:4},
   {id:"PP07",text:"현장 작업이 수작업과 문서에 의존한다",domain:"Manufacturing",vd:"총 제조원가 절감",kpi:"mfg_cost",impact:"매출원가",
-   sapSolution:"SAP Digital Manufacturing",sapDesc:"페이퍼리스 작업지시, 실시간 실적 자동 수집 및 작업자 디지털 가이드",applicability:5},
+   sapSolutions:["Digital Manufacturing","EWM"],
+   sapDesc:"종이 작업지시를 디지털로 전환하고, 작업 실적을 자동 수집하여 현장 생산성을 높입니다.",applicability:5},
   {id:"PP08",text:"에너지/탄소 데이터를 정확히 파악하기 어렵다",domain:"Sustainability",vd:"탄소 배출 비용 절감",kpi:"maintenance",impact:"매출원가",
-   sapSolution:"SAP EHS Environment Management / SAP Sustainability Footprint Management",sapDesc:"Scope 1/2/3 배출 자동 산출 및 제품별 탄소발자국 추적",applicability:4},
+   sapSolutions:["EHS EM","SFM"],
+   sapDesc:"에너지 사용량과 탄소 배출량을 자동으로 집계·추적하고, 규제 보고서를 자동 생성합니다.",applicability:4},
   {id:"PP09",text:"유지보수 비용이 과도하다",domain:"Asset",vd:"자산 유지보수 비용 절감",kpi:"maintenance",impact:"매출원가",
-   sapSolution:"SAP Asset Performance Management",sapDesc:"상태 기반 유지보수(CBM) 전환 및 자산 건전성 점수화",applicability:5},
+   sapSolutions:["APM","EAM","FSM"],
+   sapDesc:"설비 상태를 기반으로 꼭 필요한 시점에만 정비하여 과잉 보전을 줄이고, 현장 서비스 작업을 효율화합니다.",applicability:5},
   {id:"PP10",text:"납기를 자주 지키지 못한다",domain:"Manufacturing",vd:"납기 준수율 향상",kpi:"otd",impact:"세전이익률",
-   sapSolution:"SAP Integrated Business Planning",sapDesc:"판매-생산-물류 통합 S&OP 계획 및 배송 일정 최적화",applicability:4},
+   sapSolutions:["IBP","TM","EWM"],
+   sapDesc:"판매·생산·물류 계획을 통합 관리하고, 운송 일정을 최적화하여 약속한 납기를 지킵니다.",applicability:4},
   {id:"PP11",text:"신제품 출시에 시간이 너무 걸린다",domain:"Product",vd:"신제품 출시 기간 단축",kpi:"ttm",impact:"매출",
-   sapSolution:"SAP Integrated Product Development",sapDesc:"동시공학(CE) 기반 설계-제조 협업 및 제품원가 실시간 시뮬레이션",applicability:3},
+   sapSolutions:["IPD","Product Compliance","Digital Manufacturing"],
+   sapDesc:"설계·시뮬레이션·제조 부서가 동시에 협업하고, 규제 검증을 자동화하여 출시 기간을 단축합니다.",applicability:3},
   {id:"PP12",text:"공급망 리스크를 사전에 감지하기 어렵다",domain:"Foundation",vd:"이행 문제로 인한 매출 손실 감소",kpi:"stockout_loss",impact:"매출",
-   sapSolution:"SAP Integrated Business Planning",sapDesc:"외부 시그널 기반 공급망 리스크 조기 경보 및 What-if 시나리오 분석",applicability:3},
+   sapSolutions:["IBP"],
+   sapDesc:"외부 리스크 신호를 AI가 감지하여 공급 차질을 미리 경고하고, 대안을 자동으로 제안합니다.",applicability:3},
+  {id:"PP13",text:"창고/물류센터 운영 효율이 낮다",domain:"Manufacturing",vd:"총 물류 비용 절감",kpi:"logistics",impact:"매출원가",
+   sapSolutions:["EWM","TM"],
+   sapDesc:"입출고·피킹·포장 프로세스를 자동화하고, 창고 공간과 작업 동선을 최적화합니다.",applicability:4},
+  {id:"PP14",text:"물류비가 지속적으로 증가하고 있다",domain:"Foundation",vd:"총 물류 비용 절감",kpi:"logistics",impact:"매출원가",
+   sapSolutions:["TM","IBP"],
+   sapDesc:"운송 경로와 적재율을 AI가 최적화하고, 화물을 통합하여 물류비를 절감합니다.",applicability:4},
+  {id:"PP15",text:"산업 안전사고 예방 및 관리가 미흡하다",domain:"Asset",vd:"비계획 가동중단 감소",kpi:"downtime",impact:"매출",
+   sapSolutions:["EHS WS","EAM"],
+   sapDesc:"사고·아차사고를 실시간 보고·추적하고, 작업 허가와 위험 지역 관리를 디지털화합니다.",applicability:4},
+  {id:"PP16",text:"제품 규제/인증 대응에 시간과 비용이 많이 든다",domain:"Product",vd:"컴플라이언스 및 리스크 관리 비용 절감",kpi:"ttm",impact:"판관비",
+   sapSolutions:["Product Compliance","EHS EM","IPD"],
+   sapDesc:"글로벌 규제 요건을 자동으로 검증하고, 인증 문서를 자동 생성하여 대응 시간을 단축합니다.",applicability:3},
 ];
 
 // ============================================================
@@ -1417,9 +1539,12 @@ const CAPTURE_RATES = {
 // When multiple PPs in same group are selected, apply diminishing factor
 // ============================================================
 const DC_GROUPS = {
-  "capacity_revenue": ["PP01","PP02","PP10"], // All affect production capacity/revenue
-  "cost_manufacturing": ["PP03","PP07"],       // Both affect manufacturing cost
-  "inventory_wc": ["PP06","PP05"]             // Both affect working capital
+  "capacity_revenue": ["PP01","PP02","PP10"],  // All affect production capacity/revenue
+  "cost_manufacturing": ["PP03","PP07"],        // Both affect manufacturing cost
+  "inventory_wc": ["PP06","PP05"],             // Both affect working capital
+  "logistics_cost": ["PP13","PP14","PP10"],     // Logistics/warehouse related
+  "safety_asset": ["PP15","PP02","PP09"],       // Safety and asset related
+  "compliance_product": ["PP16","PP04","PP11"]  // Product compliance and development
 };
 // Diminishing factor: 2nd item in same group gets 0.5x, 3rd gets 0.3x
 const DC_FACTORS = [1.0, 0.5, 0.3, 0.2];
@@ -1556,7 +1681,8 @@ const SAP_AI_AGENTS = {
 const PP_AGENT_MAP = {
   "PP01": "AGT-M1", "PP02": "AGT-A1", "PP03": "AGT-M2", "PP04": "AGT-P2",
   "PP05": "AGT-F1", "PP06": "AGT-M1", "PP07": "AGT-H1", "PP08": "AGT-S1",
-  "PP09": "AGT-A2", "PP10": "AGT-M1", "PP11": "AGT-P1", "PP12": "AGT-F2"
+  "PP09": "AGT-A2", "PP10": "AGT-M1", "PP11": "AGT-P1", "PP12": "AGT-F2",
+  "PP13": "AGT-M1", "PP14": "AGT-M1", "PP15": "AGT-A1", "PP16": "AGT-P1"
 };
 
 const CROSS_DOMAIN_AGENTS = [
@@ -2706,13 +2832,13 @@ function setMaturity(qId, value) {
     if (!hint) { hint = document.createElement('div'); hint.className='maturity-hint'; hint.style.cssText='font-size:10px;margin-top:6px;padding:5px 8px;border-radius:4px;'; card.appendChild(hint); }
     if (value <= 2) {
       hint.style.background='#FFF8E1'; hint.style.color='#856404';
-      hint.textContent = `💡 현재 초기 수준입니다. ${q?.vd || '관련 영역'}에서 즉시 개선 기회가 있습니다.`;
+      hint.textContent = `💡 현재 초기 수준입니다. ${q?.vd || '관련 영역'}에서 SAP 솔루션 기반의 즉시 개선 기회가 있습니다.`;
     } else if (value === 3) {
       hint.style.background='#EBF4FF'; hint.style.color='#004085';
-      hint.textContent = `📈 업계 평균 수준입니다. 고도화를 통해 경쟁 우위 확보가 가능합니다.`;
+      hint.textContent = `📈 업계 평균 수준입니다. AI/ML 기반 고도화를 통해 경쟁 우위 확보가 가능합니다.`;
     } else {
       hint.style.background='#E8F5E9'; hint.style.color='#155724';
-      hint.textContent = `✅ 우수한 수준입니다. 지속적인 AI 최적화로 선도 기업 위치를 유지하세요.`;
+      hint.textContent = `✅ 우수한 수준입니다. Joule AI 등 지속적 최적화로 선도 기업 위치를 유지하세요.`;
     }
   }
   updateProgressInfo();
@@ -3033,7 +3159,8 @@ function calculateAndShow() {
     domainScores, avgMaturity, opportunities, totalScenarios,
     overallConfidence, confidenceReason, contradictions,
     benchInfo, customerKPIs, customerInputCount,
-    revenueSource, finFieldCount, erpSystem, cloudLevel, plantsCount
+    revenueSource, finFieldCount, erpSystem, cloudLevel, plantsCount,
+    companySize: sizeVal
   });
 }
 
@@ -3050,6 +3177,25 @@ function renderResults(data) {
   if (respName === 'test') {
     document.body.classList.add('unlocked');
   }
+
+  // SAP SCM Pillar Portfolio solution definitions (used throughout results)
+  const solColors = {
+    'S/4HANA':'#00144A','Digital Manufacturing':'#0070F2','IBP':'#4CB1FF',
+    'EWM':'#188918','TM':'#0D7D3A','FSM':'#D35400','EAM':'#E76500','APM':'#CC6600',
+    'EHS EM':'#0A6E5C','EHS WS':'#CC1919','Product Compliance':'#7B2FF7',
+    'SFM':'#2E7D32','IPD':'#6C3FBF'
+  };
+  const solFullNames = {
+    'S/4HANA':'SAP S/4HANA','Digital Manufacturing':'SAP Digital Manufacturing',
+    'IBP':'SAP Integrated Business Planning','EWM':'SAP Extended Warehouse Management',
+    'TM':'SAP Transportation Management','FSM':'SAP Field Service Management',
+    'EAM':'SAP Enterprise Asset Management','APM':'SAP Asset Performance Management',
+    'EHS EM':'SAP EHS Environment Management','EHS WS':'SAP EHS Work Safety',
+    'Product Compliance':'SAP Product Compliance',
+    'SFM':'SAP Sustainability Footprint Management','IPD':'SAP Integrated Product Development'
+  };
+  const allSolsList = ['S/4HANA','Digital Manufacturing','IBP','EWM','TM','FSM','EAM','APM','EHS EM','EHS WS','Product Compliance','SFM','IPD'];
+
   const fmtMoney = (n) => {
     // n is in 원(KRW). Display in 억원 or 조원.
     const eok = n / 100000000; // 억원
@@ -3068,9 +3214,17 @@ function renderResults(data) {
   let summaryText = `${data.company}의 현재 Manufacturing AI 성숙도는 평균 ${data.avgMaturity.toFixed(1)}/5.0 수준으로 평가됩니다. `;
   summaryText += `${DOMAIN_LABELS[weakestDomain[0]].split('(')[0].trim()} 영역(${weakestDomain[1].toFixed(1)}점)에서 가장 큰 개선 기회가 식별되었으며, `;
   summaryText += `${DOMAIN_LABELS[strongestDomain[0]].split('(')[0].trim()} 영역(${strongestDomain[1].toFixed(1)}점)은 상대적 강점입니다. `;
-  if (topOpp) summaryText += `가장 높은 우선순위 과제는 "${topOpp.text}"이며, `;
+  if (topOpp) {
+    summaryText += `가장 높은 우선순위 과제는 "${topOpp.text}"이며, `;
+    if (topOpp.sapSolutions && topOpp.sapSolutions.length > 0) {
+      summaryText += `이를 위해 ${topOpp.sapSolutions.map(s => solFullNames[s]||s).join(', ')} 적용이 권장됩니다. `;
+    }
+  }
   summaryText += `예상 연간 가치 기회는 ${fmtMoney(data.totalScenarios.conservative)}–${fmtMoney(data.totalScenarios.ambitious)} 범위로 추정됩니다. `;
-  summaryText += `본 결과는 ${data.customerInputCount}개의 고객 제공 데이터와 ${data.benchInfo.source}를 기반으로 산출된 방향적 추정(방향적 추정치)이며, 정밀 검증을 위한 Deep Dive를 권장합니다.`;
+  // ERP 기반 맞춤 가이드
+  const erpSummary = getERPAnalysis(data.erpSystem, data.cloudLevel, data.opportunities, data.companySize);
+  summaryText += erpSummary.statusDesc + ' ';
+  summaryText += `본 결과는 ${data.customerInputCount}개의 고객 제공 데이터와 ${data.benchInfo.source}를 기반으로 산출된 방향적 추정치이며, 정밀 분석을 위한 Deep Dive 워크숍을 권장합니다.`;
 
   // Validation needed
   const needsValidation = [];
@@ -3147,19 +3301,39 @@ function renderResults(data) {
   html += `<div class="result-card" style="position:relative;overflow:hidden;">`;
   html += `<div class="gated-blur">
     <div class="result-title">과제별 권장 SAP 솔루션</div>
-    <div class="card-desc" style="margin-bottom:10px;">SAP SCM Pillar Portfolio (2026) 기반 개별 솔루션 추천</div>`;
+    <div class="card-desc" style="margin-bottom:10px;">SAP SCM Pillar Portfolio (2026) 기반 · 과제별 관련 솔루션 매핑</div>`;
   data.opportunities.forEach((opp) => {
     const typeColors = {quickwin:'#188918',strategic:'#0070F2',incremental:'#E76500',monitor:'#aaa'};
     const typeLabels = {quickwin:'Quick Win',strategic:'전략적',incremental:'점진적',monitor:'모니터링'};
+    const solutions = opp.sapSolutions || [];
+    const solBadges = solutions.map(sol => {
+      const c = solColors[sol] || '#556B82';
+      const fullName = solFullNames[sol] || sol;
+      return `<span title="${fullName}" style="display:inline-block;font-size:11px;font-weight:600;background:${c}14;color:${c};border:1px solid ${c}44;padding:2px 8px;border-radius:12px;margin:2px 3px 2px 0;">${sol}</span>`;
+    }).join('');
     html += `<div style="padding:12px;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;border-left:3px solid ${typeColors[opp.oppType] || '#aaa'};">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:14px;font-weight:600;">${opp.text}</span>
-        <span style="font-size:11px;background:${typeColors[opp.oppType]}22;color:${typeColors[opp.oppType]};padding:2px 6px;border-radius:8px;">${typeLabels[opp.oppType]}</span>
+        <span style="font-size:11px;background:${typeColors[opp.oppType]}22;color:${typeColors[opp.oppType]};padding:2px 6px;border-radius:8px;white-space:nowrap;">${typeLabels[opp.oppType]}</span>
       </div>
-      <div style="font-size:15px;color:var(--blue);font-weight:600;">${opp.sapSolution || '-'}</div>
-      <div style="font-size:13px;color:#333;margin-top:6px;line-height:1.6;">${opp.sapDesc || ''}</div>
+      <div style="margin-bottom:6px;">${solBadges}</div>
+      <div style="font-size:13px;color:#333;line-height:1.6;">${opp.sapDesc || ''}</div>
     </div>`;
   });
+  // Solution coverage summary
+  const allSols = new Set();
+  data.opportunities.forEach(opp => (opp.sapSolutions||[]).forEach(s => allSols.add(s)));
+  html += `<div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:6px;">
+    <div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:6px;">SAP SCM Pillar Portfolio 커버리지</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;">`;
+  allSolsList.forEach(sol => {
+    const active = allSols.has(sol);
+    const c = active ? (solColors[sol]||'#0070F2') : '#ccc';
+    html += `<span style="font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid ${c}${active?'66':'33'};color:${c};background:${active?c+'11':'#f5f5f5'};${active?'font-weight:600;':'opacity:0.5;'}">${sol}</span>`;
+  });
+  html += `</div>
+    <div style="font-size:10px;color:var(--text-light);margin-top:4px;">선택하신 과제 기준 ${allSols.size}개 솔루션 관련 · 전체 12개 포트폴리오 중</div>
+  </div>`;
   html += `<div class="disclaimer">출처: SAP SCM Pillar Portfolio 2026 · 산업별 적합도 분석</div></div>`;
   html += `<div class="gated-overlay" style="border-radius:var(--radius);">
     <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
@@ -3196,6 +3370,50 @@ function renderResults(data) {
   html += `<div class="gated-overlay" style="border-radius:var(--radius);">
     <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
     <div class="gated-title">AI Agent 적용 상세</div>
+    <div class="gated-desc">아래 상담 신청 후 확인 가능합니다.</div>
+  </div></div>`;
+
+  // ══════════════════════════════════════════════════════════
+  // Row 2.5: ERP 기반 S/4HANA 전환 분석 (Full Width) - GATED
+  // ══════════════════════════════════════════════════════════
+  const erpAnalysis = getERPAnalysis(data.erpSystem, data.cloudLevel, data.opportunities, data.companySize);
+  html += `<div class="result-card full" style="position:relative;overflow:hidden;">`;
+  html += `<div class="gated-blur">
+    <div class="result-title">ERP 현황 분석 및 S/4HANA 전환 가이드</div>
+    <div class="card-desc" style="margin-bottom:12px;">현재 ERP 환경 기반 · SAP 솔루션 도입 방향성</div>`;
+  // ERP Status Badge
+  const urgencyColors = {high:'#CC1919',medium:'#E76500',low:'#188918'};
+  const urgencyLabels = {high:'전환 시급',medium:'전환 검토',low:'현행 유지'};
+  html += `<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:14px;background:${erpAnalysis.color}11;border:1px solid ${erpAnalysis.color}33;border-radius:var(--radius);">
+    <div style="width:48px;height:48px;border-radius:8px;background:${erpAnalysis.color};color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;">${erpAnalysis.icon}</div>
+    <div style="flex:1;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:15px;font-weight:700;color:${erpAnalysis.color};">${erpAnalysis.statusTitle}</span>
+        <span style="font-size:10px;font-weight:600;background:${urgencyColors[erpAnalysis.urgency]||'#aaa'};color:white;padding:2px 8px;border-radius:10px;">${urgencyLabels[erpAnalysis.urgency]||''}</span>
+      </div>
+      <div style="font-size:13px;color:var(--navy);font-weight:500;margin-top:4px;">${erpAnalysis.currentLabel}</div>
+      <div style="font-size:12px;color:var(--text-light);margin-top:2px;line-height:1.6;">${erpAnalysis.statusDesc}</div>
+    </div>
+  </div>`;
+  // Recommendation
+  html += `<div style="padding:12px;background:var(--bg);border-radius:var(--radius);margin-bottom:12px;">
+    <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px;">${erpAnalysis.recTitle}</div>
+    <div style="font-size:13px;line-height:1.7;color:var(--text);">${erpAnalysis.recBody}</div>
+  </div>`;
+  // How S/4HANA connects to selected solutions
+  if (erpAnalysis.solConnections.length > 0) {
+    html += `<div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px;">선택하신 과제와 S/4HANA의 연결</div>`;
+    erpAnalysis.solConnections.forEach(conn => {
+      html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="color:var(--blue);font-weight:600;min-width:60px;">${conn.sol}</span>
+        <span style="color:var(--text);">${conn.desc}</span>
+      </div>`;
+    });
+  }
+  html += `<div class="disclaimer">현재 ERP: ${erpAnalysis.currentLabel} · 클라우드: ${data.cloudLevel || '미입력'}</div></div>`;
+  html += `<div class="gated-overlay" style="border-radius:var(--radius);">
+    <div class="gated-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+    <div class="gated-title">ERP 전환 가이드 상세</div>
     <div class="gated-desc">아래 상담 신청 후 확인 가능합니다.</div>
   </div></div>`;
 
@@ -3489,7 +3707,7 @@ body{font-family:'72','Noto Sans KR',sans-serif;background:white;color:#1D2D3E;w
 </div>
 <div>
   <div class="section-title">상위 우선순위 과제</div>
-  ${topOpps.map((o,i) => `<div class="opp-item"><div class="opp-num">${i+1}</div><div><div style="font-weight:500;">${o.text}</div><div style="color:#556B82;font-size:8px;">${o.sapSolution || ''} · ${fmtM(o.scenarios.expected)}/년</div></div></div>`).join('')}
+  ${topOpps.map((o,i) => `<div class="opp-item"><div class="opp-num">${i+1}</div><div><div style="font-weight:500;">${o.text}</div><div style="color:#556B82;font-size:8px;">${(o.sapSolutions||[]).join(' · ') || o.sapSolution || ''} · ${fmtM(o.scenarios.expected)}/년</div></div></div>`).join('')}
 </div>
 </div>
 
@@ -3508,9 +3726,9 @@ body{font-family:'72','Noto Sans KR',sans-serif;background:white;color:#1D2D3E;w
 
 <div class="section-title">권장 후속 단계</div>
 <div style="font-size:9px;line-height:1.8;margin-bottom:8px;">
-  <strong>1.</strong> Deep Dive 워크숍 (2–3시간) — 상위 과제 상세 분석 및 비즈니스 케이스 수립<br>
-  <strong>2.</strong> PoC 설계 — Quick Win 항목 대상 3개월 파일럿 계획<br>
-  <strong>3.</strong> 전사 로드맵 — ${data.horizon === 'Strategic' ? '3-5년' : data.horizon === 'Operational' ? '6개월' : '1-2년'} 단계적 전환 계획 수립
+  <strong>1.</strong> Deep Dive 워크숍 (2–3시간) — 과제별 SAP 솔루션 상세 매핑 및 비즈니스 케이스 수립<br>
+  <strong>2.</strong> PoC 설계 — Quick Win 항목 대상 SAP Digital Manufacturing / IBP 등 3개월 파일럿 계획<br>
+  <strong>3.</strong> 전사 로드맵 — ${data.horizon === 'Strategic' ? '3-5년' : data.horizon === 'Operational' ? '6개월' : '1-2년'} 단계적 SAP SCM Pillar 도입 계획 수립
 </div>
 
 <div class="footer">
@@ -3705,7 +3923,7 @@ async function submitConsultation() {
     for (let i = 0; i < 5; i++) {
       const opp = (data.opportunities || [])[i];
       oppFields[`추천과제_${i + 1}`] = opp
-        ? `${opp.text} | ${opp.sapSolution || '-'} | ${typeKo[opp.oppType] || ''} | ${fmtEok(opp.scenarios?.expected)}/년`
+        ? `${opp.text} | ${(opp.sapSolutions||[]).join('+') || opp.sapSolution || '-'} | ${typeKo[opp.oppType] || ''} | ${fmtEok(opp.scenarios?.expected)}/년`
         : '';
     }
 
@@ -3908,10 +4126,11 @@ function renderSolutionMatrix(opportunities) {
     const ap = pp.applicability || 3;
     const dots = '●'.repeat(ap) + '○'.repeat(5-ap);
     const color = typeColor[opp.oppType] || '#aaa';
+    const solText = (opp.sapSolutions || []).join(' + ') || pp.sapSolution || '-';
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:6px 8px;font-size:13px;font-weight:500;max-width:160px;">${opp.text}</td>
       <td style="padding:6px 8px;font-size:12px;color:${color};white-space:nowrap;">${typeLabel[opp.oppType]||''}</td>
-      <td style="padding:6px 8px;font-size:12px;color:var(--navy);max-width:160px;">${pp.sapSolution||'-'}</td>
+      <td style="padding:6px 8px;font-size:12px;color:var(--navy);max-width:160px;">${solText}</td>
       <td style="padding:6px 8px;font-size:12px;color:${ap>=4?'#188918':ap>=3?'#E76500':'#aaa'};letter-spacing:1px;">${dots}</td>
     </tr>`;
   }).join('');
@@ -3978,7 +4197,7 @@ function renderQuadrantChart(opportunities) {
     y: opp.rating.impact * opp.rating.urgency / 5,
     r: Math.max(9, Math.min(22, opp.scenarios.expected / 100000000 * 2 + 7)),
     fullLabel: opp.text,
-    sapSol: (PAIN_POINTS.find(p=>p.id===opp.id)||{}).sapSolution || '',
+    sapSol: opp.sapSolutions ? opp.sapSolutions.join(' + ') : ((PAIN_POINTS.find(p=>p.id===opp.id)||{}).sapSolution || ''),
     color: colorMap[opp.oppType] || '#999'
   }));
 
